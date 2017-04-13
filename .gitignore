@@ -1,0 +1,8 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea/
+Would skip repository src/github.com/golang/snappy
+Would skip repository src/github.com/onsi/gomega
+Would skip repository src/github.com/syndtr/goleveldb
+Would skip repository src/gopkg.in/vmihailenco/msgpack.v2
+Would skip repository src/gopkg.in/yaml.v2
+yiyidb.iml
