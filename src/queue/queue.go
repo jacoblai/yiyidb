@@ -13,9 +13,9 @@ import (
 
 const (
 	defaultFilterBits int = 10
-	KB int = 1024
-	MB int = KB * 1024
-	GB int = MB * 1024
+	KB                int = 1024
+	MB                int = KB * 1024
+	GB                int = MB * 1024
 )
 
 // Type defines the type of data structure used.
@@ -46,7 +46,6 @@ var (
 	ErrDBClosed = errors.New("goque: Database is closed")
 )
 
-
 // Queue is a standard FIFO (first in, first out) queue.
 type Queue struct {
 	sync.RWMutex
@@ -65,12 +64,12 @@ func OpenQueue(dataDir string) (*Queue, error) {
 
 	// Create a new Queue.
 	q := &Queue{
-		DataDir: dataDir,
-		db:      &leveldb.DB{},
-		head:    0,
-		tail:    0,
-		isOpen:  false,
-		iteratorOpts: &opt.ReadOptions{DontFillCache:true},
+		DataDir:      dataDir,
+		db:           &leveldb.DB{},
+		head:         0,
+		tail:         0,
+		isOpen:       false,
+		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 	}
 
 	opts := &opt.Options{}
@@ -88,18 +87,17 @@ func OpenQueue(dataDir string) (*Queue, error) {
 	// Open database for the queue.
 	q.db, err = leveldb.OpenFile(dataDir, opts)
 	if err != nil {
-		return q, err
+		return nil, err
 	}
 
 	// Check if this Goque type can open the requested data directory.
 	ok, err := checkGoqueType(dataDir, goqueQueue)
 	if err != nil {
-		return q, err
+		return nil, err
 	}
 	if !ok {
-		return q, ErrIncompatibleType
+		return nil, ErrIncompatibleType
 	}
-
 	// Set isOpen and return.
 	q.isOpen = true
 	return q, q.init()
@@ -349,7 +347,7 @@ func checkGoqueType(dataDir string, gt goqueType) (bool, error) {
 	// Read file for this directory.
 	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if os.IsNotExist(err) {
-		f, err = os.OpenFile(path, os.O_RDWR | os.O_CREATE, 0644)
+		f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			return false, err
 		}
