@@ -12,14 +12,12 @@ import (
 type ttlRunner struct {
 	masterdb     *leveldb.DB
 	db           *leveldb.DB
-	isTtl        bool
 	iteratorOpts *opt.ReadOptions
 }
 
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	var err error
 	ttl := &ttlRunner{
-		isTtl:        false,
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 	}
@@ -40,6 +38,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return ttl, nil
 }
 
@@ -62,39 +61,41 @@ func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
 	return nil
 }
 
-func (t *ttlRunner) startCleanupTimer() {
-	ticker := time.Tick(1 * time.Second)
-	go (func() {
+func (t *ttlRunner) Run() {
+	isTtl := false
+	go func() {
 		for {
-			select {
-			case <-ticker:
-				if !t.isTtl{
-					t.isTtl = true
-					batch := new(leveldb.Batch)
-					iter := t.db.NewIterator(nil, t.iteratorOpts)
-					for iter.Next() {
-						var it ItemTtl
-						if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-							t.db.Delete(iter.Key(), nil)
-						} else {
-							if it.expired() {
-								batch.Delete(it.Dkey)
-								fmt.Println("has one expirse", it.Expires)
-							}
+			if !isTtl {
+				m := time.Now().Add(1* time.Second)
+				isTtl = true
+				batch := new(leveldb.Batch)
+				iter := t.db.NewIterator(nil, t.iteratorOpts)
+				for iter.Next() {
+					var it ItemTtl
+					if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
+						t.db.Delete(iter.Key(), nil)
+					} else {
+						if it.expired() {
+							batch.Delete(it.Dkey)
+							fmt.Println("expirse", it.Expires)
 						}
 					}
-					iter.Release()
-					if batch.Len() >0{
-						if err := t.masterdb.Write(batch, nil); err != nil{
-							fmt.Println(err)
-						}
-						if err := t.db.Write(batch, nil);err !=nil{
-							fmt.Println(err)
-						}
-					}
-					t.isTtl= false
 				}
+				iter.Release()
+				if batch.Len() > 0 {
+					if err := t.masterdb.Write(batch, nil); err != nil {
+						fmt.Println(err)
+					}
+					if err := t.db.Write(batch, nil); err != nil {
+						fmt.Println(err)
+					}
+				}
+				exp := m.Sub(time.Now())
+				if exp.Seconds() > 0 {
+					time.Sleep(exp)
+				}
+				isTtl = false
 			}
 		}
-	})()
+	}()
 }

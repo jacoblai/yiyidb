@@ -5,7 +5,6 @@ import (
 	"queue"
 	"path/filepath"
 	"os"
-	"time"
 	"os/signal"
 )
 
@@ -115,18 +114,18 @@ func main() {
 	for _, k:= range all{
 		fmt.Println(k)
 	}
-	go func() {
-		for{
-			fmt.Println("sleep")
-			time.Sleep(5*time.Second)
-
-			all = kv.AllKeys()
-			for _, k:= range all{
-				fmt.Println(k)
-			}
-		}
-
-	}()
+	//go func() {
+	//	for{
+	//		fmt.Println("sleep")
+	//		time.Sleep(4*time.Second)
+	//
+	//		all = kv.AllKeys()
+	//		for _, k:= range all{
+	//			fmt.Println(k)
+	//		}
+	//	}
+	//
+	//}()
 
 
 	signalChan := make(chan os.Signal, 1)

@@ -24,10 +24,7 @@ func (item *ItemTtl) expired() bool {
 	if item.Expires == nil {
 		value = true
 	} else {
-		exp := time.Now().Sub(*item.Expires)
-		if exp >= 0{
-			return true
-		}
+		value = time.Now().After(*item.Expires)
 	}
 	item.RUnlock()
 	return value

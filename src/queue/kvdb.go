@@ -53,8 +53,8 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	kv.ttldb.startCleanupTimer()
+    //run ttl func
+	kv.ttldb.Run()
 	return kv, nil
 }
 
