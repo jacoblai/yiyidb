@@ -1,14 +1,14 @@
 package yiyidb
 
 import (
-	"sync"
 	"github.com/syndtr/goleveldb/leveldb"
-	"os"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/filter"
-	"errors"
-	"path/filepath"
 	"gopkg.in/vmihailenco/msgpack.v2"
+	"sync"
+	"os"
+	"path/filepath"
+	"errors"
 )
 
 const (
@@ -104,7 +104,7 @@ func OpenQueue(dataDir string) (*Queue, error) {
 }
 
 // Enqueue adds an item to the queue.
-func (q *Queue) Enqueue(value []byte) (*Item, error) {
+func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 
@@ -114,7 +114,7 @@ func (q *Queue) Enqueue(value []byte) (*Item, error) {
 	}
 
 	// Create new Item.
-	item := &Item{
+	item := &QueueItem{
 		ID:    q.tail + 1,
 		Key:   idToKey(q.tail + 1),
 		Value: value,
@@ -133,14 +133,14 @@ func (q *Queue) Enqueue(value []byte) (*Item, error) {
 
 // EnqueueString is a helper function for Enqueue that accepts a
 // value as a string rather than a byte slice.
-func (q *Queue) EnqueueString(value string) (*Item, error) {
+func (q *Queue) EnqueueString(value string) (*QueueItem, error) {
 	return q.Enqueue([]byte(value))
 }
 
 // EnqueueObject is a helper function for Enqueue that accepts any
 // value type, which is then encoded into a byte slice using
 // encoding/gob.
-func (q *Queue) EnqueueObject(value interface{}) (*Item, error) {
+func (q *Queue) EnqueueObject(value interface{}) (*QueueItem, error) {
 	msg, err := msgpack.Marshal(value)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (q *Queue) EnqueueObject(value interface{}) (*Item, error) {
 }
 
 // Dequeue removes the next item in the queue and returns it.
-func (q *Queue) Dequeue() (*Item, error) {
+func (q *Queue) Dequeue() (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 
@@ -176,7 +176,7 @@ func (q *Queue) Dequeue() (*Item, error) {
 }
 
 // Peek returns the next item in the queue without removing it.
-func (q *Queue) Peek() (*Item, error) {
+func (q *Queue) Peek() (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 
@@ -190,7 +190,7 @@ func (q *Queue) Peek() (*Item, error) {
 
 // PeekByOffset returns the item located at the given offset,
 // starting from the head of the queue, without removing it.
-func (q *Queue) PeekByOffset(offset uint64) (*Item, error) {
+func (q *Queue) PeekByOffset(offset uint64) (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 
@@ -203,7 +203,7 @@ func (q *Queue) PeekByOffset(offset uint64) (*Item, error) {
 }
 
 // PeekByID returns the item with the given ID without removing it.
-func (q *Queue) PeekByID(id uint64) (*Item, error) {
+func (q *Queue) PeekByID(id uint64) (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 
@@ -216,7 +216,7 @@ func (q *Queue) PeekByID(id uint64) (*Item, error) {
 }
 
 // Update updates an item in the queue without changing its position.
-func (q *Queue) Update(id uint64, newValue []byte) (*Item, error) {
+func (q *Queue) Update(id uint64, newValue []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 
@@ -231,7 +231,7 @@ func (q *Queue) Update(id uint64, newValue []byte) (*Item, error) {
 	}
 
 	// Create new Item.
-	item := &Item{
+	item := &QueueItem{
 		ID:    id,
 		Key:   idToKey(id),
 		Value: newValue,
@@ -247,14 +247,14 @@ func (q *Queue) Update(id uint64, newValue []byte) (*Item, error) {
 
 // UpdateString is a helper function for Update that accepts a value
 // as a string rather than a byte slice.
-func (q *Queue) UpdateString(id uint64, newValue string) (*Item, error) {
+func (q *Queue) UpdateString(id uint64, newValue string) (*QueueItem, error) {
 	return q.Update(id, []byte(newValue))
 }
 
 // UpdateObject is a helper function for Update that accepts any
 // value type, which is then encoded into a byte slice using
 // encoding/gob.
-func (q *Queue) UpdateObject(id uint64, newValue interface{}) (*Item, error) {
+func (q *Queue) UpdateObject(id uint64, newValue interface{}) (*QueueItem, error) {
 	msg, err := msgpack.Marshal(newValue)
 	if err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func (q *Queue) Drop() {
 }
 
 // getItemByID returns an item, if found, for the given ID.
-func (q *Queue) getItemByID(id uint64) (*Item, error) {
+func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
 	// Check if empty or out of bounds.
 	if q.Length() == 0 {
 		return nil, ErrEmpty
@@ -302,7 +302,7 @@ func (q *Queue) getItemByID(id uint64) (*Item, error) {
 
 	// Get item from database.
 	var err error
-	item := &Item{ID: id, Key: idToKey(id)}
+	item := &QueueItem{ID: id, Key: idToKey(id)}
 	if item.Value, err = q.db.Get(item.Key, nil); err != nil {
 		return nil, err
 	}

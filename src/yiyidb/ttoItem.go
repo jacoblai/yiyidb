@@ -5,20 +5,20 @@ import (
 	"time"
 )
 
-type ItemTtl struct {
+type TtlItem struct {
 	sync.RWMutex
 	Dkey    []byte
 	Expires *time.Time
 }
 
-func (item *ItemTtl) touch(duration time.Duration) {
+func (item *TtlItem) touch(duration time.Duration) {
 	item.Lock()
 	expiration := time.Now().Add(duration)
 	item.Expires = &expiration
 	item.Unlock()
 }
 
-func (item *ItemTtl) expired() bool {
+func (item *TtlItem) expired() bool {
 	value := false
 	item.RLock()
 	if item.Expires == nil {

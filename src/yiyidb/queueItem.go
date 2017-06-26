@@ -7,14 +7,14 @@ import (
 
 
 // Item represents an entry in either a stack or queue.
-type Item struct {
+type QueueItem struct {
 	ID    uint64
 	Key   []byte
 	Value []byte
 }
 
 // ToString returns the item value as a string.
-func (i *Item) ToString() string {
+func (i *QueueItem) ToString() string {
 	return string(i.Value)
 }
 
@@ -24,7 +24,7 @@ func (i *Item) ToString() string {
 // The value passed to this method should be a pointer to a variable
 // of the type you wish to decode into. The variable pointed to will
 // hold the decoded object.
-func (i *Item) ToObject(value interface{}) error {
+func (i *QueueItem) ToObject(value interface{}) error {
 	err := msgpack.Unmarshal(i.Value, &value)
 	return err
 }

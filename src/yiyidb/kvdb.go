@@ -7,6 +7,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
+	"errors"
 )
 
 type Kvdb struct {
@@ -16,7 +17,7 @@ type Kvdb struct {
 	ttldb        *ttlRunner
 	iteratorOpts *opt.ReadOptions
 	syncOpts     *opt.WriteOptions
-	OnExpirse func(key, value []byte)
+	OnExpirse    func(key, value []byte)
 }
 
 func OpenKvdb(dataDir string) (*Kvdb, error) {
@@ -55,17 +56,39 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 		return nil, err
 	}
 	kv.ttldb.HandleExpirse = kv.onExp
-    //run ttl func
+	//run ttl func
 	kv.ttldb.Run()
 	return kv, nil
 }
 
 func (k *Kvdb) onExp(key, value []byte) {
-	k.OnExpirse(key,value)
+	if k.OnExpirse != nil {
+		k.OnExpirse(key, value)
+	}
 }
 
-func (k *Kvdb) Exists(key string) bool {
-	ok, _ := k.db.Has([]byte(key), nil)
+func (k *Kvdb) NilTTL(key []byte) error {
+	return k.ttldb.Put(-1, key)
+}
+
+func (k *Kvdb) SetTTL(key []byte, ttl int) error {
+	if k.Exists(key) {
+		if ttl > 0 {
+			return k.ttldb.Put(ttl, key)
+		} else {
+			return errors.New("must > 0")
+		}
+	} else {
+		return errors.New("records not found")
+	}
+}
+
+func (k *Kvdb) GetTTL(key []byte) (float64, error) {
+	return k.ttldb.GetTTL(key)
+}
+
+func (k *Kvdb) Exists(key []byte) bool {
+	ok, _ := k.db.Has(key, k.iteratorOpts)
 	return ok
 }
 
@@ -77,12 +100,12 @@ func (k *Kvdb) Get(key []byte) ([]byte, error) {
 	return data, nil
 }
 
-func (k *Kvdb) Put(key,value []byte, ttl int) error {
+func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	err := k.db.Put(key, value, nil)
 	if err != nil {
 		return err
 	}
-	if ttl != 0{
+	if ttl > 0 {
 		k.ttldb.Put(ttl, key)
 	}
 	return nil
@@ -100,21 +123,21 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
-func (k *Kvdb) KeyStart(key string) []string {
-	var keys []string
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+func (k *Kvdb) KeyStart(key []byte) [][]byte {
+	var keys [][]byte
+	iter := k.db.NewIterator(util.BytesPrefix(key), nil)
 	defer iter.Release()
 	for iter.Next() {
-		keys = append(keys, string(iter.Key()))
+		keys = append(keys, iter.Key())
 	}
 	return keys
 }
 
-func (k *Kvdb) KeyRange(min string, max string) []string {
+func (k *Kvdb) KeyRange(min, max []byte) []string {
 	var keys []string
 	iter := k.db.NewIterator(nil, nil)
 	defer iter.Release()
-	for ok := iter.Seek([]byte(min)); ok && bytes.Compare(iter.Key(), []byte(max)) <= 0; ok = iter.Next() {
+	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
 	return keys

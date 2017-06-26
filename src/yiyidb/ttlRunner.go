@@ -44,8 +44,9 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 }
 
 func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
+	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
-		ttl := &ItemTtl{
+		ttl := &TtlItem{
 			Dkey: masterDbKey,
 		}
 		ttl.touch(time.Duration(expires) * time.Second)
@@ -54,12 +55,24 @@ func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
 			return err
 		}
 	} else if expires < 0 {
-		//当设置为0或更小数时删除ttl记录
+		//设置少于0值即取消此记当的TTL属性
 		if err := t.db.Delete(masterDbKey, nil); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (t *ttlRunner) GetTTL(key []byte) (float64, error) {
+	val, err := t.db.Get(key, t.iteratorOpts)
+	if err != nil {
+		return 0, err
+	}
+	var it TtlItem
+	if err := msgpack.Unmarshal(val, &it); err != nil {
+		return 0, err
+	}
+	return it.Expires.Sub(time.Now()).Seconds(), nil
 }
 
 func (t *ttlRunner) Run() {
@@ -69,14 +82,14 @@ func (t *ttlRunner) Run() {
 			batch := new(leveldb.Batch)
 			iter := t.db.NewIterator(nil, t.iteratorOpts)
 			for iter.Next() {
-				var it ItemTtl
+				var it TtlItem
 				if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
 					t.db.Delete(iter.Key(), nil)
 				} else {
 					if it.expired() {
 						batch.Delete(it.Dkey)
 						val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-						if err == nil {
+						if err == nil && t.HandleExpirse != nil {
 							t.HandleExpirse(iter.Key(), val)
 						}
 					}

@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
-	"queue"
 	"path/filepath"
 	"os"
 	"os/signal"
+	"strconv"
+	"time"
+	"yiyidb"
 )
 
 func main() {
@@ -108,25 +110,26 @@ func main() {
 	defer kv.Close()
 	kv.OnExpirse = OnExp
 
-	kv.Put([]byte("hello1"),[]byte("hello value"), 3)
-	kv.Put([]byte("hello2"),[]byte("hello value2"), 10)
-
-	all := kv.AllKeys()
-	for _, k:= range all{
-		fmt.Println(k)
+	for i:=0;i<= 10;i++{
+		kv.Put([]byte("hello" + strconv.Itoa(i)),[]byte("hello value"+ strconv.Itoa(i)), 7)
 	}
-	//go func() {
-	//	for{
-	//		fmt.Println("sleep")
-	//		time.Sleep(4*time.Second)
-	//
-	//		all = kv.AllKeys()
-	//		for _, k:= range all{
-	//			fmt.Println(k)
-	//		}
-	//	}
-	//
-	//}()
+
+	//all := kv.AllKeys()
+	//for _, k:= range all{
+	//	fmt.Println(k)
+	//}
+	go func() {
+		for{
+			fmt.Println("sleep")
+			time.Sleep(5*time.Second)
+
+			all := kv.AllKeys()
+			for _, k:= range all{
+				fmt.Println(k)
+			}
+		}
+
+	}()
 
 
 	signalChan := make(chan os.Signal, 1)
