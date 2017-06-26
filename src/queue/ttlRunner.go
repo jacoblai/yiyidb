@@ -10,9 +10,10 @@ import (
 )
 
 type ttlRunner struct {
-	masterdb     *leveldb.DB
-	db           *leveldb.DB
-	iteratorOpts *opt.ReadOptions
+	masterdb      *leveldb.DB
+	db            *leveldb.DB
+	iteratorOpts  *opt.ReadOptions
+	HandleExpirse func(key, value []byte)
 }
 
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
@@ -62,39 +63,37 @@ func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
 }
 
 func (t *ttlRunner) Run() {
-	isTtl := false
 	go func() {
 		for {
-			if !isTtl {
-				m := time.Now().Add(1* time.Second)
-				isTtl = true
-				batch := new(leveldb.Batch)
-				iter := t.db.NewIterator(nil, t.iteratorOpts)
-				for iter.Next() {
-					var it ItemTtl
-					if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-						t.db.Delete(iter.Key(), nil)
-					} else {
-						if it.expired() {
-							batch.Delete(it.Dkey)
-							fmt.Println("expirse", it.Expires)
+			m := time.Now().Add(1 * time.Second)
+			batch := new(leveldb.Batch)
+			iter := t.db.NewIterator(nil, t.iteratorOpts)
+			for iter.Next() {
+				var it ItemTtl
+				if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
+					t.db.Delete(iter.Key(), nil)
+				} else {
+					if it.expired() {
+						batch.Delete(it.Dkey)
+						val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
+						if err == nil {
+							t.HandleExpirse(iter.Key(), val)
 						}
 					}
 				}
-				iter.Release()
-				if batch.Len() > 0 {
-					if err := t.masterdb.Write(batch, nil); err != nil {
-						fmt.Println(err)
-					}
-					if err := t.db.Write(batch, nil); err != nil {
-						fmt.Println(err)
-					}
+			}
+			iter.Release()
+			if batch.Len() > 0 {
+				if err := t.masterdb.Write(batch, nil); err != nil {
+					fmt.Println(err)
 				}
-				exp := m.Sub(time.Now())
-				if exp.Seconds() > 0 {
-					time.Sleep(exp)
+				if err := t.db.Write(batch, nil); err != nil {
+					fmt.Println(err)
 				}
-				isTtl = false
+			}
+			exp := m.Sub(time.Now())
+			if exp.Seconds() > 0 {
+				time.Sleep(exp)
 			}
 		}
 	}()

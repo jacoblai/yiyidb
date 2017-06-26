@@ -16,6 +16,7 @@ type Kvdb struct {
 	ttldb        *ttlRunner
 	iteratorOpts *opt.ReadOptions
 	syncOpts     *opt.WriteOptions
+	OnExpirse func(key, value []byte)
 }
 
 func OpenKvdb(dataDir string) (*Kvdb, error) {
@@ -53,9 +54,14 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	if err != nil {
 		return nil, err
 	}
+	kv.ttldb.HandleExpirse = kv.onExp
     //run ttl func
 	kv.ttldb.Run()
 	return kv, nil
+}
+
+func (k *Kvdb) onExp(key, value []byte) {
+	k.OnExpirse(key,value)
 }
 
 func (k *Kvdb) Exists(key string) bool {

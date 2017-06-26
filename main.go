@@ -106,6 +106,7 @@ func main() {
 		return
 	}
 	defer kv.Close()
+	kv.OnExpirse = OnExp
 
 	kv.Put([]byte("hello1"),[]byte("hello value"), 3)
 	kv.Put([]byte("hello2"),[]byte("hello value2"), 10)
@@ -138,3 +139,8 @@ func main() {
 	}()
 	<-cleanupDone
 }
+
+func OnExp(key, value []byte) {
+	fmt.Println("exp:", string(key), string(value))
+}
+
