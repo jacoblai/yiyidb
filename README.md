@@ -3,7 +3,7 @@
 [![Author](https://img.shields.io/badge/author-@jacoblai-blue.svg?style=flat)](http://www.icoolpy.com/) [![Platform](https://img.shields.io/badge/platform-Linux,%20OpenWrt,%20Android,%20Mac,%20Windows-green.svg?style=flat)](https://github.com/jacoblai/dhdb) [![NoSQL](https://img.shields.io/badge/db-NoSQL-pink.svg?tyle=flat)](https://github.com/jacoblai/dhdb)
 
 
-YIYIDB is a high performace key-value(key-string, List-keys) NoSQL database, __an alternative to Redis__.
+YIYIDB is a high performace NoSQL database
 
 ## Features
 
@@ -13,93 +13,82 @@ YIYIDB is a high performace key-value(key-string, List-keys) NoSQL database, __a
 * KV list (z-list)
 * KV list TTL time expirse auto del and event
 * Android or OpenWrt os supported (ARM/MIPS)
-   
-## sample
 
 ## import
 ```
-import (
- "github.com/garyburd/redigo/redis"
- "fmt"
-)
+import "github.com/garyburd/redigo/redis"
+```
+## KET VALUE LIST
 
-var RedisClient     *redis.Pool
-func main() {
- RedisClient = &redis.Pool{
-  MaxIdle:  5,
-  MaxActive:   5,
-  IdleTimeout: 180 * time.Second,
-  Dial: func() (redis.Conn, error) {
-   c, err := redis.Dial("tcp", "127.0.0.1:6380")
-   if err != nil {
-   	return nil, err
-   }
-   _, err = c.Do("AUTH", "icoolpy.com")
-   fmt.Println(err)
-   return c, nil
-  },
- }
+## open or create database
+```
+dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+if err != nil {
+	panic(err)
 }
-```
-## SET
-```
-c := RedisClient.Get()
-_, err := c.Do("SET", "foo", "bar","joo", "bar")
-```
-## GET 
-```
-if v, err := redis.String(c.Do("GET", "foo")); err == nil {
- fmt.Println(v)
+
+kv, err := yiyidb.OpenKvdb(dir + "/kvdata")
+if err != nil {
+	fmt.Println(err)
+	return
 }
+defer kv.Close()
 ```
-## KEYS
+## reg an event func hook on TTL delete
 ```
-// find all keys start with 'j' word 
-v, err := redis.Strings(c.Do("KEYS", "j*"));
-if  err != nil || v[0] != "joo" {
- fmt.Println("Keys not fire *")
-}
-```
-## KEYSSTART (sreach keys from goleveldb Iterator not suport regexp) 
-```
-v, err := redis.Strings(c.Do("KEYSSTART", "jo"));
-if  err == nil {
- fmt.Println("KEYSSTART")
- for _, val := range v {
- 	fmt.Println(val)
- }
+kv.OnExpirse = func(key, value []byte) {
+   fmt.Println("exp:", string(key), string(value))
 }
 ```
 
-## KEYSRANGE (sreach keys from goleveldb Iterator suport range datetime keys express)
+## insert One key value data
 ```
-//gen data 
-tm, _ := time.Parse(time.RFC3339Nano, "2017-01-09T14:10:43.678Z")
- for i := 0; i < 10; i++ {
-  key := tm.Add(time.Second * time.Duration(i))
-  nkey := key.Format(time.RFC3339Nano)
-  var nb []byte
-  for _, r := range "1,2," {
-  	nb = append(nb, byte(r))
-  }
-  for _, r := range nkey {
-  	nb = append(nb, byte(r))
-  }
-  _, err = c.Do("SET", string(nb), "")
- }
-//sreach range keys
-v, _ := redis.Strings(c.Do("KEYSRANGE", "1,2,2017-01-09T14:10:41", "1,2,2017-01-09T14:11:46"))
-for _, val := range v {
- fmt.Println(val)
+kv.Put([]byte("hello1"), []byte("hello value"), 0)
+```
+
+## insert One key value data TTL 3 seconds expirse auto delete
+```
+kv.Put([]byte("hello1"), []byte("hello value"), 0)
+```
+
+## set an exists key enable TTL 8 seconds expirse auto delete
+```
+kv.SetTTL([]byte("hello1"), 8)
+```
+
+## get data
+```
+vaule, err := kv.Get([]byte("hello1"))
+if err != nil {
+		fmt.Println(err)
 }
 ```
 
-## SELECT (change database List)
+## all keys
 ```
-if _, err = redis.String(c.Do("SELECT", "5")); err != nil {
- fmt.Println(err)
+all := kv.AllKeys()
+for _, k := range all {
+	fmt.Println(k)
 }
 ```
+
+## keys start with 
+```
+searchkeys := kv.KeyStart([]byte("hello1"))
+for _, k := range searchkeys {
+	fmt.Println(k)
+}
+```
+
+## keys range with
+```
+randkeys := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+for _, k := range randkeys {
+	fmt.Println(k)
+}
+```
+
+## QUEUE LIST
 
 ## RPUSH (Qeueu must init new list by select command)
 ```
@@ -131,4 +120,3 @@ for i := 0; i < 3; i++ {
 ## Thanks
 
 * syndtr, github.com/syndtr/goleveldb
-* bsm, github.com/bsm/redeo
