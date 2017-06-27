@@ -68,7 +68,11 @@ func (k *Kvdb) onExp(key, value []byte) {
 }
 
 func (k *Kvdb) NilTTL(key []byte) error {
-	return k.ttldb.Put(-1, key)
+	if k.ttldb.Exists(key){
+		return k.ttldb.Put(-1, key)
+	}else{
+		return errors.New("ttl not found")
+	}
 }
 
 func (k *Kvdb) SetTTL(key []byte, ttl int) error {
@@ -111,10 +115,19 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	return nil
 }
 
+func (k *Kvdb) Del(key []byte) error {
+	err := k.db.Delete(key, k.syncOpts)
+	if err != nil {
+		return err
+	}
+	k.ttldb.DelTTL(key)
+	return nil
+}
+
 // allKeys returns all keys. Sorted.
 func (k *Kvdb) AllKeys() []string {
 	var keys []string
-	iter := k.db.NewIterator(nil, nil)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
@@ -125,7 +138,7 @@ func (k *Kvdb) AllKeys() []string {
 
 func (k *Kvdb) KeyStart(key []byte) [][]byte {
 	var keys [][]byte
-	iter := k.db.NewIterator(util.BytesPrefix(key), nil)
+	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	defer iter.Release()
 	for iter.Next() {
 		keys = append(keys, iter.Key())
@@ -135,7 +148,7 @@ func (k *Kvdb) KeyStart(key []byte) [][]byte {
 
 func (k *Kvdb) KeyRange(min, max []byte) []string {
 	var keys []string
-	iter := k.db.NewIterator(nil, nil)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		keys = append(keys, string(iter.Key()))

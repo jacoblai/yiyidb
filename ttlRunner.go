@@ -43,6 +43,11 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	return ttl, nil
 }
 
+func (t *ttlRunner) Exists(key []byte) bool {
+	ok, _ := t.db.Has(key, t.iteratorOpts)
+	return ok
+}
+
 func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
 	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
@@ -73,6 +78,10 @@ func (t *ttlRunner) GetTTL(key []byte) (float64, error) {
 		return 0, err
 	}
 	return it.Expires.Sub(time.Now()).Seconds(), nil
+}
+
+func (t *ttlRunner) DelTTL(key []byte) error {
+	return t.db.Delete(key, nil)
 }
 
 func (t *ttlRunner) Run() {
