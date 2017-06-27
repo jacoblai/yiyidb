@@ -81,4 +81,14 @@ func TestTtlRunner_Run(t *testing.T) {
 			fmt.Println(k)
 		}
 	}
+
+	searchkeys := kv.KeyStart([]byte("hello1"))
+	for _, k := range searchkeys {
+		fmt.Println(k)
+	}
+
+	randkeys := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+	for _, k := range randkeys {
+		fmt.Println(k)
+	}
 }

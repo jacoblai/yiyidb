@@ -136,12 +136,12 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
-func (k *Kvdb) KeyStart(key []byte) [][]byte {
-	var keys [][]byte
+func (k *Kvdb) KeyStart(key []byte) []string {
+	var keys []string
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	defer iter.Release()
 	for iter.Next() {
-		keys = append(keys, iter.Key())
+		keys = append(keys, string(iter.Key()))
 	}
 	return keys
 }
