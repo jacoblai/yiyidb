@@ -65,22 +65,20 @@ func TestTtlRunner_Run(t *testing.T) {
 	}
 
 	for i := 0; i <= 10; i++ {
-		kv.Put([]byte("hello"+strconv.Itoa(i)), []byte("hello value"+strconv.Itoa(i)), 7)
+		kv.Put([]byte("hello"+strconv.Itoa(i)), []byte("hello value"+strconv.Itoa(i)), i+1)
 	}
 
 	//all := kv.AllKeys()
 	//for _, k:= range all{
 	//	fmt.Println(k)
 	//}
-	go func() {
-		for i := 1; i < 10; i++ {
-			fmt.Println("sleep")
-			time.Sleep(5 * time.Second)
+	for i := 1; i < 10; i++ {
+		fmt.Println("sleep")
+		time.Sleep(3 * time.Second)
 
-			all := kv.AllKeys()
-			for _, k := range all {
-				fmt.Println(k)
-			}
+		all := kv.AllKeys()
+		for _, k := range all {
+			fmt.Println(k)
 		}
-	}()
+	}
 }

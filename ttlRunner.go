@@ -97,12 +97,14 @@ func (t *ttlRunner) Run() {
 			}
 			iter.Release()
 			if batch.Len() > 0 {
-				if err := t.masterdb.Write(batch, nil); err != nil {
-					fmt.Println(err)
-				}
-				if err := t.db.Write(batch, nil); err != nil {
-					fmt.Println(err)
-				}
+				go func(){
+					if err := t.masterdb.Write(batch, nil); err != nil {
+						fmt.Println(err)
+					}
+					if err := t.db.Write(batch, nil); err != nil {
+						fmt.Println(err)
+					}
+				}()
 			}
 			exp := m.Sub(time.Now())
 			if exp.Seconds() > 0 {
