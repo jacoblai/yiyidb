@@ -19,14 +19,12 @@ YIYIDB is a high performace NoSQL database
 import "github.com/garyburd/redigo/redis"
 ```
 ## KET VALUE LIST
-
 ## open or create database
 ```
 dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 if err != nil {
 	panic(err)
 }
-
 kv, err := yiyidb.OpenKvdb(dir + "/kvdata")
 if err != nil {
 	fmt.Println(err)
@@ -88,28 +86,39 @@ for _, k := range randkeys {
 }
 ```
 
-## QUEUE LIST
+## QUEUE LIST (FIFO)
+## open or create queue
+```
+dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+if err != nil {
+	panic(err)
+}
+queue, err := yiyidb.OpenQueue(dir + "/queuedata")
+if err != nil {
+	fmt.Println(err)
+	return
+}
+defer queue.Close()
+```
 
-## RPUSH (Qeueu must init new list by select command)
+## enqueue string
 ```
-//change new list for queue by select command
-_, _ = redis.String(c.Do("SELECT", "15"));
-myv, _ := redis.Int(c.Do("RPUSH", "foo2","bar3"));
-fmt.Println(myv)//print finish count
+item, err = q.EnqueueString("value")
 ```
 
-## LPOP (Qeueu must init list queue type)
+## dequeue
 ```
-//change new list for queue by select command
-_, _ = redis.String(c.Do("SELECT", "15"));
-for i := 0; i < 3; i++ {
- av, err := redis.String(c.Do("LPOP"));
- if  err !=nil{
-  fmt.Println(err)// EOF Queue
-  break;
- }
- fmt.Println("pop finish", i)
- fmt.Println(av)//print pop value
+deqItem, err := q.Dequeue()
+if err != nil {
+	t.Error(err)
+}
+```
+
+## peekbyoffset
+```
+peekFirstItem, err := q.PeekByOffset(0)
+if err != nil {
+	t.Error(err)
 }
 ```
 
