@@ -175,9 +175,9 @@ if err := updatedItem.ToObject(&obj); err != nil {
 ```
 
 ## Perfromace 
-## Enqueue bench test
+## Enqueue or insert kv list bench test
 300000	      5865ns/op	     516B/op	       9allocs/op
-## Dequeue bench test
+## Dequeue or get kv list bench test
 200000	     14379ns/op	    1119B/op	      20allocs/op
 
 ## Authors
