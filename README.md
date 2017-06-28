@@ -101,24 +101,76 @@ if err != nil {
 defer queue.Close()
 ```
 
-## enqueue string
+## enqueue push string
 ```
 item, err = q.EnqueueString("value")
 ```
 
-## dequeue
+## enqueue push object
+```
+type object struct {
+	Value int
+}
+item, err = q.EnqueueObject(object{Value:1})
+```
+
+## dequeue pop item
 ```
 deqItem, err := q.Dequeue()
 if err != nil {
-	t.Error(err)
+	fmt.Println(err)
 }
+fmt.Println(string(deqItem.Value))
+```
+
+## peek get item (just see get on by auto remove it)
+```
+peekItem, err := q.Peek()
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(peekItem.Value))
 ```
 
 ## peekbyoffset
 ```
 peekFirstItem, err := q.PeekByOffset(0)
 if err != nil {
-	t.Error(err)
+	fmt.Println(err)
+}
+fmt.Println(string(peekFirstItem.Value))
+```
+
+## update queue item bytes value
+```
+updatedItem, err := q.Update(item.ID, []byte(newCompStr))
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(updatedItem.Value))
+```
+
+## update queue item string value
+```
+updatedItem, err := q.UpdateString(item.ID, "new values")
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(updatedItem.Value))
+```
+
+## update queue item object value
+```
+type object struct {
+	Value int
+}
+updatedItem, err := q.UpdateObject(item.ID, object{Value:1})
+if err != nil {
+	fmt.Println(err)
+}
+var obj object
+if err := updatedItem.ToObject(&obj); err != nil {
+	fmt.Println(err)
 }
 ```
 
