@@ -176,9 +176,9 @@ if err := updatedItem.ToObject(&obj); err != nil {
 
 ## Perfromace 
 ## Enqueue bench test
-300000	      5865 ns/op	     516 B/op	       9 allocs/op
+300000	      5865ns/op	     516B/op	       9allocs/op
 ## Dequeue bench test
-200000	     14379 ns/op	    1119 B/op	      20 allocs/op
+200000	     14379ns/op	    1119B/op	      20allocs/op
 
 ## Authors
 
