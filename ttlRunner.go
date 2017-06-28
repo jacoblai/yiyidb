@@ -48,7 +48,7 @@ func (t *ttlRunner) Exists(key []byte) bool {
 	return ok
 }
 
-func (t *ttlRunner) Put(expires int, masterDbKey []byte) error {
+func (t *ttlRunner) SetTTL(expires int, masterDbKey []byte) error {
 	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
 		ttl := &TtlItem{

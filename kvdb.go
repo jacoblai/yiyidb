@@ -68,9 +68,9 @@ func (k *Kvdb) onExp(key, value []byte) {
 }
 
 func (k *Kvdb) NilTTL(key []byte) error {
-	if k.ttldb.Exists(key){
-		return k.ttldb.Put(-1, key)
-	}else{
+	if k.ttldb.Exists(key) {
+		return k.ttldb.SetTTL(-1, key)
+	} else {
 		return errors.New("ttl not found")
 	}
 }
@@ -78,7 +78,7 @@ func (k *Kvdb) NilTTL(key []byte) error {
 func (k *Kvdb) SetTTL(key []byte, ttl int) error {
 	if k.Exists(key) {
 		if ttl > 0 {
-			return k.ttldb.Put(ttl, key)
+			return k.ttldb.SetTTL(ttl, key)
 		} else {
 			return errors.New("must > 0")
 		}
@@ -110,9 +110,26 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 		return err
 	}
 	if ttl > 0 {
-		k.ttldb.Put(ttl, key)
+		k.ttldb.SetTTL(ttl, key)
 	}
 	return nil
+}
+
+func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
+	batch := new(leveldb.Batch)
+	for _, v := range *items {
+		switch v.Op {
+		case "put":
+			batch.Put(v.Key, v.Value)
+			if v.Ttl > 0 {
+				k.ttldb.SetTTL(v.Ttl, v.Key)
+			}
+		case "del":
+			batch.Delete(v.Key)
+			k.ttldb.DelTTL(v.Key)
+		}
+	}
+	return k.db.Write(batch, nil)
 }
 
 func (k *Kvdb) Del(key []byte) error {
