@@ -145,10 +145,10 @@ func (k *Kvdb) Del(key []byte) error {
 func (k *Kvdb) AllKeys() []string {
 	var keys []string
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
-	defer iter.Release()
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
+	iter.Release()
 	//sort.Strings(keys) // To make things deterministic.
 	return keys
 }
@@ -156,20 +156,20 @@ func (k *Kvdb) AllKeys() []string {
 func (k *Kvdb) KeyStart(key []byte) []string {
 	var keys []string
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
-	defer iter.Release()
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
+	iter.Release()
 	return keys
 }
 
 func (k *Kvdb) KeyRange(min, max []byte) []string {
 	var keys []string
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
-	defer iter.Release()
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
+	iter.Release()
 	return keys
 }
 
