@@ -1,4 +1,4 @@
-# YIYIDB - A fast golang NoSQL database lib for storing big list of data
+# YIYIDB - A fast NoSQL database for storing big list of data
 
 [![Author](https://img.shields.io/badge/author-@jacoblai-blue.svg?style=flat)](http://www.icoolpy.com/) [![Platform](https://img.shields.io/badge/platform-Linux,%20OpenWrt,%20Android,%20Mac,%20Windows-green.svg?style=flat)](https://github.com/jacoblai/dhdb) [![NoSQL](https://img.shields.io/badge/db-NoSQL-pink.svg?tyle=flat)](https://github.com/jacoblai/dhdb)
 
@@ -54,6 +54,30 @@ kv.Put([]byte("hello1"), []byte("hello value"), 0)
 kv.SetTTL([]byte("hello1"), 8)
 ```
 
+## batch operation
+```
+items := make([]BatItem,0)
+for i := 1; i < 5; i++ {
+    item := BatItem{
+    	Op: "put",
+    	Ttl: 1,
+    	Key: []byte("test" + strconv.Itoa(i)),
+    	Value: []byte("bat values"),
+    }
+    items = append(items, item)
+}
+for i := 1; i < 5; i++ {
+    item := BatItem{
+    	Op: "del",
+    	Ttl: 1,
+    	Key: []byte("test" + strconv.Itoa(i)),
+    	Value: []byte("bat values"),
+    }
+    items = append(items, item)
+}
+kv.BatPutOrDel(&items)
+```
+
 ## get data
 ```
 vaule, err := kv.Get([]byte("hello1"))
@@ -101,26 +125,84 @@ if err != nil {
 defer queue.Close()
 ```
 
-## enqueue string
+## enqueue push string
 ```
 item, err = q.EnqueueString("value")
 ```
 
-## dequeue
+## enqueue push object
+```
+type object struct {
+	Value int
+}
+item, err = q.EnqueueObject(object{Value:1})
+```
+
+## dequeue pop item
 ```
 deqItem, err := q.Dequeue()
 if err != nil {
-	t.Error(err)
+	fmt.Println(err)
 }
+fmt.Println(string(deqItem.Value))
+```
+
+## peek get item (just see get on by auto remove it)
+```
+peekItem, err := q.Peek()
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(peekItem.Value))
 ```
 
 ## peekbyoffset
 ```
 peekFirstItem, err := q.PeekByOffset(0)
 if err != nil {
-	t.Error(err)
+	fmt.Println(err)
+}
+fmt.Println(string(peekFirstItem.Value))
+```
+
+## update queue item bytes value
+```
+updatedItem, err := q.Update(item.ID, []byte(newCompStr))
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(updatedItem.Value))
+```
+
+## update queue item string value
+```
+updatedItem, err := q.UpdateString(item.ID, "new values")
+if err != nil {
+	fmt.Println(err)
+}
+fmt.Println(string(updatedItem.Value))
+```
+
+## update queue item object value
+```
+type object struct {
+	Value int
+}
+updatedItem, err := q.UpdateObject(item.ID, object{Value:1})
+if err != nil {
+	fmt.Println(err)
+}
+var obj object
+if err := updatedItem.ToObject(&obj); err != nil {
+	fmt.Println(err)
 }
 ```
+
+## Perfromace 
+## Enqueue or insert kv list bench test
+300,000	      5865ns/op	     516B/op	       9allocs/op
+## Dequeue or get kv list bench test
+200,000	     14379ns/op	    1119B/op	      20allocs/op
 
 ## Authors
 
