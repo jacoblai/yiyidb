@@ -54,6 +54,30 @@ kv.Put([]byte("hello1"), []byte("hello value"), 0)
 kv.SetTTL([]byte("hello1"), 8)
 ```
 
+## batch operation
+```
+items := make([]BatItem,0)
+for i := 1; i < 5; i++ {
+    item := BatItem{
+    	Op: "put",
+    	Ttl: 1,
+    	Key: []byte("test" + strconv.Itoa(i)),
+    	Value: []byte("bat values"),
+    }
+    items = append(items, item)
+}
+for i := 1; i < 5; i++ {
+    item := BatItem{
+    	Op: "del",
+    	Ttl: 1,
+    	Key: []byte("test" + strconv.Itoa(i)),
+    	Value: []byte("bat values"),
+    }
+    items = append(items, item)
+}
+kv.BatPutOrDel(&items)
+```
+
 ## get data
 ```
 vaule, err := kv.Get([]byte("hello1"))
