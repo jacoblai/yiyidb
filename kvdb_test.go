@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func BenchmarkKvdb_Put(b *testing.B) {
+func TestKvdb_Put(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
@@ -23,11 +23,11 @@ func BenchmarkKvdb_Put(b *testing.B) {
 	defer kv.Close()
 
 	start := time.Now()
-	for i := 0; i < 100000; i++ {
-		_ = kv.Put([]byte("key" + strconv.Itoa(i)), []byte("values"),0)
-	}
+	//for i := 0; i < 1000000; i++ {
+		ks := kv.KeyRange([]byte("key0"),[]byte("key1000000"))
+	//}
 	exp := time.Now().Sub(start)
-	fmt.Println(exp)
+	fmt.Println(exp, ks)
 }
 
 func TestKvdb_BatPutOrDel(t *testing.T) {

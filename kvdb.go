@@ -8,6 +8,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
 	"errors"
+	"os"
 )
 
 type Kvdb struct {
@@ -59,6 +60,11 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	//run ttl func
 	kv.ttldb.Run()
 	return kv, nil
+}
+
+func (k *Kvdb) Drop() {
+	k.Close()
+	os.RemoveAll(k.DataDir)
 }
 
 func (k *Kvdb) onExp(key, value []byte) {
