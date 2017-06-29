@@ -35,7 +35,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	opts.WriteL0PauseTrigger = 64
 
 	//Open TTl
-	ttl.db, err = leveldb.OpenFile(dbname+"_ttl", opts)
+	ttl.db, err = leveldb.OpenFile(dbname+"/ttl", opts)
 	if err != nil {
 		return nil, err
 	}

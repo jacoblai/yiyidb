@@ -9,6 +9,22 @@ import (
 	"strconv"
 )
 
+func TestKvdb_Drop(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	// Open/create a queue.
+	kv, err := OpenKvdb(dir + "/kvdata1")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer kv.Close()
+
+	kv.Drop()
+}
+
 func TestKvdb_Put(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
