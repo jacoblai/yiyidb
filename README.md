@@ -46,7 +46,7 @@ kv.Put([]byte("hello1"), []byte("hello value"), 0)
 
 ## insert One key value data TTL 3 seconds expirse auto delete
 ```
-kv.Put([]byte("hello1"), []byte("hello value"), 0)
+kv.Put([]byte("hello1"), []byte("hello value"), 3)
 ```
 
 ## set an exists key enable TTL 8 seconds expirse auto delete
