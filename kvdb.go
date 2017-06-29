@@ -65,7 +65,7 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 }
 
 func (k *Kvdb) NewIter() *iterator.Iterator {
-	return &k.db.NewIterator(nil,nil)
+	return &k.db.NewIterator(nil,k.iteratorOpts)
 }
 
 func (k *Kvdb) Drop() {
