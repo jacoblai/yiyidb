@@ -120,6 +120,7 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	if err != nil {
 		return err
 	}
+	return nil
 }
 
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
