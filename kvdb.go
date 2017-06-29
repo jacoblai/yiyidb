@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"gopkg.in/vmihailenco/msgpack.v2"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 type Kvdb struct {
@@ -61,6 +62,10 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	//run ttl func
 	kv.ttldb.Run()
 	return kv, nil
+}
+
+func (k *Kvdb) NewIter() *iterator.Iterator {
+	return &k.db.NewIterator(nil,nil)
 }
 
 func (k *Kvdb) Drop() {
