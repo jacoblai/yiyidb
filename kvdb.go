@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 type Kvdb struct {
@@ -110,6 +111,17 @@ func (k *Kvdb) Get(key []byte) ([]byte, error) {
 	return data, nil
 }
 
+func (k *Kvdb) GetObject(key []byte, value interface{}) error {
+	data, err := k.Get(key)
+	if err != nil {
+		return err
+	}
+	err = msgpack.Unmarshal(data, &value)
+	if err != nil {
+		return err
+	}
+}
+
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	err := k.db.Put(key, value, nil)
 	if err != nil {
@@ -119,6 +131,14 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 		k.ttldb.SetTTL(ttl, key)
 	}
 	return nil
+}
+
+func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
+	msg, err := msgpack.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return k.Put(key, msg, ttl)
 }
 
 func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
