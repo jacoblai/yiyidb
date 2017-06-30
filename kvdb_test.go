@@ -22,12 +22,18 @@ func TestKvdb_IterAll(t *testing.T) {
 	}
 	defer kv.Close()
 
-	all := kv.IterAll()
-	for k, v := range all {
-		fmt.Println(k,string(*v))
-		break
+	type object struct {
+		Value int
 	}
 
+	kv.PutObject([]byte("testkey"),object{1},0)
+	kv.PutObject([]byte("testkey1"),object{2},0)
+
+	var o object
+	all := kv.IterAll(o)
+	for k, v := range all {
+		fmt.Println(k,v)
+	}
 }
 
 func TestKvdb_Drop(t *testing.T) {

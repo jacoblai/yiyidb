@@ -64,16 +64,6 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	return kv, nil
 }
 
-func (k *Kvdb) IterAll() map[string][]byte {
-	res := make(map[string][]byte)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
-	for iter.Next() {
-		res[string(iter.Key())] = iter.Value()
-	}
-	iter.Release()
-	return res
-}
-
 func (k *Kvdb) Drop() {
 	k.Close()
 	os.RemoveAll(k.DataDir)
@@ -181,6 +171,20 @@ func (k *Kvdb) Del(key []byte) error {
 	}
 	k.ttldb.DelTTL(key)
 	return nil
+}
+
+func (k *Kvdb) IterAll(Ntype interface{}) map[string]interface{} {
+	res := make(map[string]interface{})
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+		err := msgpack.Unmarshal(iter.Value(), &t)
+		if err == nil {
+			res[string(iter.Key())] = t
+		}
+	}
+	iter.Release()
+	return res
 }
 
 // allKeys returns all keys. Sorted.
