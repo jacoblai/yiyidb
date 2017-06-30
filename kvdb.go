@@ -64,11 +64,12 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 }
 
 func (k *Kvdb) IterAll() map[string][]byte {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	res := make(map[string][]byte)
-	for iter.Next(){
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
 		res[string(iter.Key())] = iter.Value()
 	}
+	iter.Release()
 	return res
 }
 
