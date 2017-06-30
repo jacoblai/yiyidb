@@ -9,6 +9,27 @@ import (
 	"strconv"
 )
 
+func TestKvdb_IterAll(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	// Open/create a queue.
+	kv, err := OpenKvdb(dir + "/kvdata2")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer kv.Close()
+
+	all := kv.IterAll()
+	for k, v := range all {
+		fmt.Println(k,string(*v))
+		break
+	}
+
+}
+
 func TestKvdb_Drop(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
@@ -40,7 +61,7 @@ func TestKvdb_Put(t *testing.T) {
 
 	start := time.Now()
 	//for i := 0; i < 1000000; i++ {
-		ks := kv.KeyRange([]byte("key0"),[]byte("key1000000"))
+	ks := kv.KeyRange([]byte("key0"), []byte("key1000000"))
 	//}
 	exp := time.Now().Sub(start)
 	fmt.Println(exp, ks)
@@ -59,29 +80,29 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 	}
 	defer kv.Close()
 
-	items := make([]BatItem,0)
+	items := make([]BatItem, 0)
 	//add 50000 items to database
 	for i := 1; i < 50000; i++ {
 		item := BatItem{
-			Op: "put",
-			Ttl: 1,
-			Key: []byte("test" + strconv.Itoa(i)),
+			Op:    "put",
+			Ttl:   1,
+			Key:   []byte("test" + strconv.Itoa(i)),
 			Value: []byte("bat values"),
 		}
 		items = append(items, item)
 	}
 	kv.BatPutOrDel(&items)
 	last, err := kv.Get([]byte("test9999"))
-	if string(last) != "bat values"{
+	if string(last) != "bat values" {
 		t.Error("record not put finish")
 	}
 
 	//remove 50000 items from database
 	for i := 1; i < 50000; i++ {
 		item := BatItem{
-			Op: "del",
-			Ttl: 1,
-			Key: []byte("test" + strconv.Itoa(i)),
+			Op:    "del",
+			Ttl:   1,
+			Key:   []byte("test" + strconv.Itoa(i)),
 			Value: []byte("bat values"),
 		}
 		items = append(items, item)

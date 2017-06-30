@@ -63,11 +63,11 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	return kv, nil
 }
 
-func (k *Kvdb) IterAll() map[string][]byte {
+func (k *Kvdb) IterAll() map[string]*[]byte {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
-	res := make(map[string][]byte)
+	res := make(map[string]*[]byte)
 	for iter.Next(){
-		res[string(iter.Key())] = iter.Value()
+		res[string(iter.Key())] = &iter.Value()
 	}
 	return res
 }
