@@ -94,6 +94,18 @@ for _, k := range all {
 }
 ```
 
+## all keys and struct by value
+```
+type object struct {
+	Value int
+}
+var o object
+all := kv.IterAll(o)
+for k, v := range all {
+	fmt.Println(k,v)
+}
+```
+
 ## keys start with 
 ```
 searchkeys := kv.KeyStart([]byte("hello1"))
