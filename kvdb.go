@@ -136,8 +136,8 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 }
 
 func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
-	t:= reflect.ValueOf(value)
-	if t.Kind() == reflect.Ptr{
+	t := reflect.ValueOf(value)
+	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	msg, err := msgpack.Marshal(t.Interface())
@@ -207,6 +207,20 @@ func (k *Kvdb) KeyStart(key []byte) []string {
 	}
 	iter.Release()
 	return keys
+}
+
+func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) map[string]interface{} {
+	res := make(map[string]interface{})
+	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	for iter.Next() {
+		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+		err := msgpack.Unmarshal(iter.Value(), &t)
+		if err == nil {
+			res[string(iter.Key())] = t
+		}
+	}
+	iter.Release()
+	return res
 }
 
 func (k *Kvdb) KeyRange(min, max []byte) []string {
