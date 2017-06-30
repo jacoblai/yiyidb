@@ -10,7 +10,6 @@ import (
 	"errors"
 	"os"
 	"gopkg.in/vmihailenco/msgpack.v2"
-	"reflect"
 )
 
 type Kvdb struct {
@@ -146,11 +145,7 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 }
 
 func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
-	t:= reflect.ValueOf(value)
-	if t.Kind() == reflect.Ptr{
-		t = t.Elem()
-	}
-	msg, err := msgpack.Marshal(t)
+	msg, err := msgpack.Marshal(value)
 	if err != nil {
 		return err
 	}
