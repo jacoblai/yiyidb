@@ -19,7 +19,6 @@ type Kvdb struct {
 	db           *leveldb.DB
 	ttldb        *ttlRunner
 	iteratorOpts *opt.ReadOptions
-	syncOpts     *opt.WriteOptions
 	OnExpirse    func(key, value []byte)
 }
 
@@ -44,9 +43,6 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	opts.CompactionTableSize = 32 * MB
 	opts.WriteL0SlowdownTrigger = 16
 	opts.WriteL0PauseTrigger = 64
-
-	kv.syncOpts = &opt.WriteOptions{}
-	kv.syncOpts.Sync = true
 
 	// Open database for the queue.
 	kv.db, err = leveldb.OpenFile(kv.DataDir, opts)
@@ -165,7 +161,7 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 }
 
 func (k *Kvdb) Del(key []byte) error {
-	err := k.db.Delete(key, k.syncOpts)
+	err := k.db.Delete(key, nil)
 	if err != nil {
 		return err
 	}
