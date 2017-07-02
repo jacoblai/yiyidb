@@ -16,7 +16,7 @@ YIYIDB is a high performace NoSQL database
 
 ## import
 ```
-import "github.com/garyburd/redigo/redis"
+import "github.com/jacoblai/yiyidb"
 ```
 ## KET VALUE LIST
 ## open or create database
