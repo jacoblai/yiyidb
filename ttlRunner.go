@@ -13,6 +13,7 @@ type ttlRunner struct {
 	masterdb      *leveldb.DB
 	db            *leveldb.DB
 	iteratorOpts  *opt.ReadOptions
+	quit          chan struct{}
 	HandleExpirse func(key, value []byte)
 }
 
@@ -21,6 +22,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	ttl := &ttlRunner{
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
+		quit:         make(chan struct{}),
 	}
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
@@ -85,40 +87,46 @@ func (t *ttlRunner) DelTTL(key []byte) error {
 }
 
 func (t *ttlRunner) Run() {
+	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for {
-			m := time.Now().Add(1 * time.Second)
-			batch := new(leveldb.Batch)
-			iter := t.db.NewIterator(nil, t.iteratorOpts)
-			for iter.Next() {
-				var it TtlItem
-				if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-					t.db.Delete(iter.Key(), nil)
-				} else {
-					if it.expired() {
-						batch.Delete(it.Dkey)
-						val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-						if err == nil && t.HandleExpirse != nil {
-							t.HandleExpirse(iter.Key(), val)
+			select {
+			case <-ticker.C:
+				batch := new(leveldb.Batch)
+				iter := t.db.NewIterator(nil, t.iteratorOpts)
+				for iter.Next() {
+					var it TtlItem
+					if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
+						t.db.Delete(iter.Key(), nil)
+					} else {
+						if it.expired() {
+							batch.Delete(it.Dkey)
+							val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
+							if err == nil && t.HandleExpirse != nil {
+								t.HandleExpirse(iter.Key(), val)
+							}
 						}
 					}
 				}
-			}
-			iter.Release()
-			if batch.Len() > 0 {
-				go func(){
-					if err := t.masterdb.Write(batch, nil); err != nil {
-						fmt.Println(err)
-					}
-					if err := t.db.Write(batch, nil); err != nil {
-						fmt.Println(err)
-					}
-				}()
-			}
-			exp := m.Sub(time.Now())
-			if exp.Seconds() > 0 {
-				time.Sleep(exp)
+				iter.Release()
+				if batch.Len() > 0 {
+					go func() {
+						if err := t.masterdb.Write(batch, nil); err != nil {
+							fmt.Println(err)
+						}
+						if err := t.db.Write(batch, nil); err != nil {
+							fmt.Println(err)
+						}
+					}()
+				}
+			case <-t.quit:
+				ticker.Stop()
+				return
 			}
 		}
 	}()
+}
+
+func (t *ttlRunner) Stop() {
+	close(t.quit)
 }
