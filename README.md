@@ -100,7 +100,39 @@ type object struct {
 	Value int
 }
 var o object
-all := kv.IterAll(o)
+all := kv.AllByObject(o)
+for k, v := range all {
+	fmt.Println(k,v)
+}
+```
+
+## all keys and raw by value
+```
+all := kv.AllByKV()
+for k, v := range all {
+	fmt.Println(k,string(v))
+}
+```
+
+## keys start with filter and struct by value
+```
+type object struct {
+	Value int
+}
+var o object
+all := kv.KeyStartByObject([]byte("key"), o)
+for k, v := range all {
+	fmt.Println(k,v)
+}
+```
+
+## keys range with filter and struct by value
+```
+type object struct {
+	Value int
+}
+var o object
+all := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey"), o)
 for k, v := range all {
 	fmt.Println(k,v)
 }
