@@ -132,7 +132,7 @@ type object struct {
 	Value int
 }
 var o object
-all := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey"), o)
+all := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey123"), o)
 for k, v := range all {
 	fmt.Println(k,v)
 }
