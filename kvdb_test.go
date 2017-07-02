@@ -9,16 +9,96 @@ import (
 	"strconv"
 )
 
-func TestKvdb_IterAll(t *testing.T) {
+func TestKvdb_KeyRangeByObject(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
 	}
 	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata2")
+	kv, err := OpenKvdb(dir + "/kvdata8")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
+	}
+	defer kv.Close()
+
+	type object struct {
+		Value int
+	}
+
+	kv.PutObject([]byte("testkey1"),object{1},0)
+	kv.PutObject([]byte("testkey22"),object{2},0)
+	kv.PutObject([]byte("testke"),object{3},0)
+
+	var o object
+	all := kv.KeyRangeByObject([]byte("testkey"),[]byte("testkey25"), o)
+	for k, v := range all {
+		fmt.Println(k,v)
+	}
+
+	kv.Drop()
+}
+
+func TestKvdb_KeyStartByObject(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	// Open/create a queue.
+	kv, err := OpenKvdb(dir + "/kvdata7")
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	type object struct {
+		Value int
+	}
+
+	kv.PutObject([]byte("testkey1"),object{1},0)
+	kv.PutObject([]byte("testkey2"),object{2},0)
+	kv.PutObject([]byte("testke"),object{3},0)
+
+	var o object
+	all := kv.KeyStartByObject([]byte("testkey"), o)
+	for k, v := range all {
+		fmt.Println(k,v)
+	}
+
+	kv.Drop()
+}
+
+func TestKvdb_AllByKV(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	// Open/create a queue.
+	kv, err := OpenKvdb(dir + "/kvdata6")
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	kv.Put([]byte("testkey"),[]byte("test value1"),0)
+	kv.Put([]byte("testkey1"),[]byte("test value2"),0)
+
+	all := kv.AllByKV()
+	for k, v := range all {
+		fmt.Println(k,string(v))
+	}
+
+	kv.Drop()
+}
+
+func TestKvdb_AllByObject(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	// Open/create a queue.
+	kv, err := OpenKvdb(dir + "/kvdata5")
+	if err != nil {
+		panic(err)
 	}
 	defer kv.Close()
 
@@ -30,10 +110,12 @@ func TestKvdb_IterAll(t *testing.T) {
 	kv.PutObject([]byte("testkey1"),object{2},0)
 
 	var o object
-	all := kv.IterAll(o)
+	all := kv.AllByObject(o)
 	for k, v := range all {
 		fmt.Println(k,v)
 	}
+
+	kv.Drop()
 }
 
 func TestKvdb_Drop(t *testing.T) {
@@ -42,10 +124,9 @@ func TestKvdb_Drop(t *testing.T) {
 		panic(err)
 	}
 	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata1")
+	kv, err := OpenKvdb(dir + "/kvdata4")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer kv.Close()
 
@@ -58,10 +139,9 @@ func TestKvdb_Put(t *testing.T) {
 		panic(err)
 	}
 	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata")
+	kv, err := OpenKvdb(dir + "/kvdata3")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer kv.Close()
 
@@ -71,6 +151,8 @@ func TestKvdb_Put(t *testing.T) {
 	//}
 	exp := time.Now().Sub(start)
 	fmt.Println(exp, ks)
+
+	kv.Drop()
 }
 
 func TestKvdb_BatPutOrDel(t *testing.T) {
@@ -79,10 +161,9 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		panic(err)
 	}
 	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata")
+	kv, err := OpenKvdb(dir + "/kvdata2")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer kv.Close()
 
@@ -126,10 +207,9 @@ func TestOpenKvdb(t *testing.T) {
 		panic(err)
 	}
 	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata")
+	kv, err := OpenKvdb(dir + "/kvdata1")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer kv.Close()
 
@@ -167,8 +247,7 @@ func TestTtlRunner_Run(t *testing.T) {
 	// Open/create a queue.
 	kv, err := OpenKvdb(dir + "/kvdata")
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 	defer kv.Close()
 	kv.OnExpirse = func(key, value []byte) {
@@ -179,10 +258,6 @@ func TestTtlRunner_Run(t *testing.T) {
 		kv.Put([]byte("hello"+strconv.Itoa(i)), []byte("hello value"+strconv.Itoa(i)), i+1)
 	}
 
-	//all := kv.AllKeys()
-	//for _, k:= range all{
-	//	fmt.Println(k)
-	//}
 	for i := 1; i < 10; i++ {
 		fmt.Println("sleep")
 		time.Sleep(3 * time.Second)

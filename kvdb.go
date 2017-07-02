@@ -173,7 +173,7 @@ func (k *Kvdb) Del(key []byte) error {
 	return nil
 }
 
-func (k *Kvdb) IterAll(Ntype interface{}) map[string]interface{} {
+func (k *Kvdb) AllByObject(Ntype interface{}) map[string]interface{} {
 	res := make(map[string]interface{})
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
@@ -182,6 +182,16 @@ func (k *Kvdb) IterAll(Ntype interface{}) map[string]interface{} {
 		if err == nil {
 			res[string(iter.Key())] = t
 		}
+	}
+	iter.Release()
+	return res
+}
+
+func (k *Kvdb) AllByKV() map[string][]byte {
+	res := make(map[string][]byte)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		res[string(iter.Key())] = iter.Value()
 	}
 	iter.Release()
 	return res
@@ -231,6 +241,20 @@ func (k *Kvdb) KeyRange(min, max []byte) []string {
 	}
 	iter.Release()
 	return keys
+}
+
+func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) map[string]interface{} {
+	res := make(map[string]interface{})
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
+		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+		err := msgpack.Unmarshal(iter.Value(), &t)
+		if err == nil {
+			res[string(iter.Key())] = t
+		}
+	}
+	iter.Release()
+	return res
 }
 
 func (k *Kvdb) Close() error {
