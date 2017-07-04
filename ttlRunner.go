@@ -22,7 +22,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	ttl := &ttlRunner{
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		quit:         make(chan struct{}),
+		quit:         make(chan struct{}, 1),
 	}
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
