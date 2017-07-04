@@ -66,6 +66,30 @@ func OpenQueue(dataDir string) (*Queue, error) {
 	return q, q.init()
 }
 
+func (q *Queue) EnqueueBatch(value [][]byte) error {
+	q.Lock()
+	defer q.Unlock()
+	if !q.isOpen {
+		return ErrDBClosed
+	}
+
+	batch := new(leveldb.Batch)
+	for _, v := range value {
+		item := &QueueItem{
+			ID:    q.tail + 1,
+			Key:   idToKey(q.tail + 1),
+			Value: v,
+		}
+		batch.Put(item.Key, item.Value)
+		q.tail++
+	}
+	if err := q.db.Write(batch, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()

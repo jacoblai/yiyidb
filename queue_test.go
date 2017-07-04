@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"os"
+	"strconv"
 )
 
 func TestQueueClose(t *testing.T) {
@@ -441,6 +442,33 @@ func TestQueueOutOfBounds(t *testing.T) {
 	_, err = q.PeekByOffset(2)
 	if err != ErrOutOfBounds {
 		t.Errorf("Expected to get queue out of bounds error, got %s", err.Error())
+	}
+}
+
+func TestQueue_EnqueueBat(t *testing.T) {
+	file := fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+	q, err := OpenQueue(file)
+	if err != nil {
+		t.Error(err)
+	}
+	defer q.Drop()
+
+	vals := make([][]byte, 0)
+	for i := 1; i < 500; i++ {
+		vals = append(vals, []byte("test values" + strconv.Itoa(i)))
+	}
+
+	err = q.EnqueueBatch(vals)
+	if err != nil {
+		t.Error(err)
+	}
+
+	item, err := q.PeekByID(499)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if string(item.Value) != "test values499"{
+		t.Error("not encode all")
 	}
 }
 
