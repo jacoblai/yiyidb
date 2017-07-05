@@ -9,7 +9,7 @@ YIYIDB is a high performace NoSQL database
 
 * Pure Go 
 * Big data list to 10 billion
-* Queue 
+* Queue FIFO
 * KV list (z-list)
 * KV list TTL time expirse auto del and event
 * Android or OpenWrt os supported (ARM/MIPS)
