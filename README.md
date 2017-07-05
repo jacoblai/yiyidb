@@ -182,6 +182,36 @@ type object struct {
 item, err = q.EnqueueObject(object{Value:1})
 ```
 
+## enqueue push []byte 
+```
+item, err := q.Enqueue([]byte("value"))
+if err != nil{
+	t.Error(err)
+}
+fmt.Print(string(item.Value))
+```
+
+## enqueue push batch of []byte
+```
+vals := make([][]byte, 0)
+for i := 1; i < 500; i++ {
+	vals = append(vals, []byte("test values" + strconv.Itoa(i)))
+}
+
+err = q.EnqueueBatch(vals)
+if err != nil {
+	t.Error(err)
+}
+
+item, err := q.PeekByID(499)
+if err != nil {
+	t.Error(err.Error())
+}
+if string(item.Value) != "test values499"{
+	t.Error("not encode all")
+}
+```
+
 ## dequeue pop item
 ```
 deqItem, err := q.Dequeue()
