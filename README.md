@@ -25,7 +25,7 @@ dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 if err != nil {
 	panic(err)
 }
-kv, err := yiyidb.OpenKvdb(dir + "/kvdata")
+kv, err := yiyidb.OpenKvdb(dir + "/kvdata", true) //path, enable ttl
 if err != nil {
 	fmt.Println(err)
 	return

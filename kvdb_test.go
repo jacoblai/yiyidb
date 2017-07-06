@@ -277,3 +277,18 @@ func TestTtlRunner_Run(t *testing.T) {
 		fmt.Println(k)
 	}
 }
+
+func TestMaxKeyAndValue(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+
+	kv, err := OpenKvdb(dir + "/kvdata9", false)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+
+}
