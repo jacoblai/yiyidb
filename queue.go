@@ -32,6 +32,7 @@ type Queue struct {
 	tail         uint64
 	isOpen       bool
 	iteratorOpts *opt.ReadOptions
+	maxkv        int
 }
 
 func OpenQueue(dataDir string) (*Queue, error) {
@@ -44,6 +45,7 @@ func OpenQueue(dataDir string) (*Queue, error) {
 		tail:         0,
 		isOpen:       false,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
+		maxkv:        512 * MB,
 	}
 
 	opts := &opt.Options{}
@@ -75,6 +77,9 @@ func (q *Queue) EnqueueBatch(value [][]byte) error {
 
 	batch := new(leveldb.Batch)
 	for _, v := range value {
+		if len(v) > q.maxkv{
+			return errors.New("out of len 512M")
+		}
 		item := &QueueItem{
 			ID:    q.tail + 1,
 			Key:   idToKey(q.tail + 1),
@@ -95,6 +100,9 @@ func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
+	}
+	if len(value) > q.maxkv{
+		return nil, errors.New("out of len 512M")
 	}
 	item := &QueueItem{
 		ID:    q.tail + 1,

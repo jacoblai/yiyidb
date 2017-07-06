@@ -120,7 +120,10 @@ type object struct {
 	Value int
 }
 var o object
-all := kv.KeyStartByObject([]byte("key"), o)
+all, err := kv.KeyStartByObject([]byte("key"), o)
+if err !=nil{
+	fmt.Println(err)
+}
 for k, v := range all {
 	fmt.Println(k,v)
 }
@@ -132,7 +135,10 @@ type object struct {
 	Value int
 }
 var o object
-all := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey123"), o)
+all, err := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey123"), o)
+if err !=nil{
+	fmt.Println(err)
+}
 for k, v := range all {
 	fmt.Println(k,v)
 }
@@ -148,7 +154,10 @@ for _, k := range searchkeys {
 
 ## keys range with
 ```
-randkeys := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+randkeys, err := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+if err !=nil{
+	fmt.Println(err)
+}
 for _, k := range randkeys {
 	fmt.Println(k)
 }

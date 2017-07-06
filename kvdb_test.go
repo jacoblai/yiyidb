@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"strconv"
+	"io/ioutil"
 )
 
 func TestKvdb_KeyRangeByObject(t *testing.T) {
@@ -15,7 +16,7 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata8", false)
+	kv, err := OpenKvdb(dir+"/kvdata8", false)
 	if err != nil {
 		panic(err)
 	}
@@ -25,14 +26,17 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey1"),object{1},0)
-	kv.PutObject([]byte("testkey22"),object{2},0)
-	kv.PutObject([]byte("testke"),object{3},0)
+	kv.PutObject([]byte("testkey1"), object{1}, 0)
+	kv.PutObject([]byte("testkey22"), object{2}, 0)
+	kv.PutObject([]byte("testke"), object{3}, 0)
 
 	var o object
-	all := kv.KeyRangeByObject([]byte("testkey"),[]byte("testkey25"), o)
+	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o)
+	if err !=nil{
+		panic(err)
+	}
 	for k, v := range all {
-		fmt.Println(k,v)
+		fmt.Println(k, v)
 	}
 
 	kv.Drop()
@@ -44,7 +48,7 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata7", false)
+	kv, err := OpenKvdb(dir+"/kvdata7", false)
 	if err != nil {
 		panic(err)
 	}
@@ -54,14 +58,17 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey1"),object{1},0)
-	kv.PutObject([]byte("testkey2"),object{2},0)
-	kv.PutObject([]byte("testke"),object{3},0)
+	kv.PutObject([]byte("testkey1"), object{1}, 0)
+	kv.PutObject([]byte("testkey2"), object{2}, 0)
+	kv.PutObject([]byte("testke"), object{3}, 0)
 
 	var o object
-	all := kv.KeyStartByObject([]byte("testkey"), o)
+	all, err := kv.KeyStartByObject([]byte("testkey"), o)
+	if err != nil {
+		panic(err)
+	}
 	for k, v := range all {
-		fmt.Println(k,v)
+		fmt.Println(k, v)
 	}
 
 	kv.Drop()
@@ -73,18 +80,18 @@ func TestKvdb_AllByKV(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata6", false)
+	kv, err := OpenKvdb(dir+"/kvdata6", false)
 	if err != nil {
 		panic(err)
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("testkey"),[]byte("test value1"),0)
-	kv.Put([]byte("testkey1"),[]byte("test value2"),0)
+	kv.Put([]byte("testkey"), []byte("test value1"), 0)
+	kv.Put([]byte("testkey1"), []byte("test value2"), 0)
 
 	all := kv.AllByKV()
 	for k, v := range all {
-		fmt.Println(k,string(v))
+		fmt.Println(k, string(v))
 	}
 
 	kv.Drop()
@@ -96,7 +103,7 @@ func TestKvdb_AllByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata5", false)
+	kv, err := OpenKvdb(dir+"/kvdata5", false)
 	if err != nil {
 		panic(err)
 	}
@@ -106,13 +113,13 @@ func TestKvdb_AllByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey"),object{1},0)
-	kv.PutObject([]byte("testkey1"),object{2},0)
+	kv.PutObject([]byte("testkey"), object{1}, 0)
+	kv.PutObject([]byte("testkey1"), object{2}, 0)
 
 	var o object
 	all := kv.AllByObject(o)
 	for k, v := range all {
-		fmt.Println(k,v)
+		fmt.Println(k, v)
 	}
 
 	kv.Drop()
@@ -124,7 +131,7 @@ func TestKvdb_Drop(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata4", false)
+	kv, err := OpenKvdb(dir+"/kvdata4", false)
 	if err != nil {
 		panic(err)
 	}
@@ -139,7 +146,7 @@ func TestKvdb_Put(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata3", false)
+	kv, err := OpenKvdb(dir+"/kvdata3", false)
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +154,10 @@ func TestKvdb_Put(t *testing.T) {
 
 	start := time.Now()
 	//for i := 0; i < 1000000; i++ {
-	ks := kv.KeyRange([]byte("key0"), []byte("key1000000"))
+	ks, err := kv.KeyRange([]byte("key0"), []byte("key1000000"))
+	if err != nil {
+		panic(err)
+	}
 	//}
 	exp := time.Now().Sub(start)
 	fmt.Println(exp, ks)
@@ -161,7 +171,7 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata2", false)
+	kv, err := OpenKvdb(dir+"/kvdata2", false)
 	if err != nil {
 		panic(err)
 	}
@@ -206,7 +216,7 @@ func TestOpenKvdb(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata1", true)
+	kv, err := OpenKvdb(dir+"/kvdata1", true)
 	if err != nil {
 		panic(err)
 	}
@@ -244,7 +254,7 @@ func TestTtlRunner_Run(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata", true)
+	kv, err := OpenKvdb(dir+"/kvdata", true)
 	if err != nil {
 		panic(err)
 	}
@@ -267,12 +277,12 @@ func TestTtlRunner_Run(t *testing.T) {
 		}
 	}
 
-	searchkeys := kv.KeyStart([]byte("hello1"))
+	searchkeys, _ := kv.KeyStart([]byte("hello1"))
 	for _, k := range searchkeys {
 		fmt.Println(k)
 	}
 
-	randkeys := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+	randkeys, _ := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
 	for _, k := range randkeys {
 		fmt.Println(k)
 	}
@@ -284,11 +294,29 @@ func TestMaxKeyAndValue(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir + "/kvdata9", false)
+	kv, err := OpenKvdb(dir+"/kvdata11", false)
 	if err != nil {
 		panic(err)
 	}
-	defer kv.Close()
 
+	defer kv.Drop()
 
+	bts, err := ioutil.ReadFile("D:\\GoglandProjects\\yiyidb\\yiyidb.zip")
+	if err != nil {
+		panic(err)
+	}
+
+	err = kv.Put(bts, bts, 0)
+	if err != nil {
+		panic(err)
+	}
+	btss, err := kv.Get(bts)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile("D:\\GoglandProjects\\yiyidb\\yiyidb1.zip",btss,777)
+	if err != nil {
+		panic(err)
+	}
+	//测试结果显示 key和value不超过512m为保证可用性，但性能下降，建议把key尽可能精练
 }
