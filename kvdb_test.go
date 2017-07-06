@@ -14,8 +14,8 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata8")
+
+	kv, err := OpenKvdb(dir + "/kvdata8", false)
 	if err != nil {
 		panic(err)
 	}
@@ -43,8 +43,8 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata7")
+
+	kv, err := OpenKvdb(dir + "/kvdata7", false)
 	if err != nil {
 		panic(err)
 	}
@@ -72,8 +72,8 @@ func TestKvdb_AllByKV(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata6")
+
+	kv, err := OpenKvdb(dir + "/kvdata6", false)
 	if err != nil {
 		panic(err)
 	}
@@ -95,8 +95,8 @@ func TestKvdb_AllByObject(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata5")
+
+	kv, err := OpenKvdb(dir + "/kvdata5", false)
 	if err != nil {
 		panic(err)
 	}
@@ -123,8 +123,8 @@ func TestKvdb_Drop(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata4")
+
+	kv, err := OpenKvdb(dir + "/kvdata4", false)
 	if err != nil {
 		panic(err)
 	}
@@ -138,8 +138,8 @@ func TestKvdb_Put(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata3")
+
+	kv, err := OpenKvdb(dir + "/kvdata3", false)
 	if err != nil {
 		panic(err)
 	}
@@ -160,8 +160,8 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata2")
+
+	kv, err := OpenKvdb(dir + "/kvdata2", false)
 	if err != nil {
 		panic(err)
 	}
@@ -172,7 +172,7 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 	for i := 1; i < 50000; i++ {
 		item := BatItem{
 			Op:    "put",
-			Ttl:   1,
+			Ttl:   0,
 			Key:   []byte("test" + strconv.Itoa(i)),
 			Value: []byte("bat values"),
 		}
@@ -188,7 +188,6 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 	for i := 1; i < 50000; i++ {
 		item := BatItem{
 			Op:    "del",
-			Ttl:   1,
 			Key:   []byte("test" + strconv.Itoa(i)),
 			Value: []byte("bat values"),
 		}
@@ -206,8 +205,8 @@ func TestOpenKvdb(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata1")
+
+	kv, err := OpenKvdb(dir + "/kvdata1", true)
 	if err != nil {
 		panic(err)
 	}
@@ -244,8 +243,8 @@ func TestTtlRunner_Run(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	// Open/create a queue.
-	kv, err := OpenKvdb(dir + "/kvdata")
+
+	kv, err := OpenKvdb(dir + "/kvdata", true)
 	if err != nil {
 		panic(err)
 	}

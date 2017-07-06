@@ -18,18 +18,19 @@ type Kvdb struct {
 	DataDir      string
 	db           *leveldb.DB
 	ttldb        *ttlRunner
+	enableTtl    bool
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
 }
 
-func OpenKvdb(dataDir string) (*Kvdb, error) {
+func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 	var err error
 
-	// Create a new Queue.
 	kv := &Kvdb{
 		DataDir:      dataDir,
 		db:           &leveldb.DB{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
+		enableTtl:    nttl,
 	}
 
 	opts := &opt.Options{}
@@ -49,14 +50,18 @@ func OpenKvdb(dataDir string) (*Kvdb, error) {
 	if err != nil {
 		return nil, err
 	}
-	//Open TTl
-	kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir)
-	if err != nil {
-		return nil, err
+
+	if kv.enableTtl {
+		//Open TTl
+		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir)
+		if err != nil {
+			return nil, err
+		}
+		kv.ttldb.HandleExpirse = kv.onExp
+		//run ttl func
+		kv.ttldb.Run()
 	}
-	kv.ttldb.HandleExpirse = kv.onExp
-	//run ttl func
-	kv.ttldb.Run()
+
 	return kv, nil
 }
 
@@ -72,7 +77,7 @@ func (k *Kvdb) onExp(key, value []byte) {
 }
 
 func (k *Kvdb) NilTTL(key []byte) error {
-	if k.ttldb.Exists(key) {
+	if k.enableTtl && k.ttldb.Exists(key) {
 		return k.ttldb.SetTTL(-1, key)
 	} else {
 		return errors.New("ttl not found")
@@ -80,7 +85,7 @@ func (k *Kvdb) NilTTL(key []byte) error {
 }
 
 func (k *Kvdb) SetTTL(key []byte, ttl int) error {
-	if k.Exists(key) {
+	if k.enableTtl && k.Exists(key) {
 		if ttl > 0 {
 			return k.ttldb.SetTTL(ttl, key)
 		} else {
@@ -92,7 +97,11 @@ func (k *Kvdb) SetTTL(key []byte, ttl int) error {
 }
 
 func (k *Kvdb) GetTTL(key []byte) (float64, error) {
-	return k.ttldb.GetTTL(key)
+	if k.enableTtl {
+		return k.ttldb.GetTTL(key)
+	} else {
+		return 0, errors.New("ttl not enable")
+	}
 }
 
 func (k *Kvdb) Exists(key []byte) bool {
@@ -125,7 +134,7 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if err != nil {
 		return err
 	}
-	if ttl > 0 {
+	if k.enableTtl && ttl > 0 {
 		k.ttldb.SetTTL(ttl, key)
 	}
 	return nil
@@ -149,12 +158,14 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 		switch v.Op {
 		case "put":
 			batch.Put(v.Key, v.Value)
-			if v.Ttl > 0 {
+			if k.enableTtl && v.Ttl > 0 {
 				k.ttldb.SetTTL(v.Ttl, v.Key)
 			}
 		case "del":
 			batch.Delete(v.Key)
-			k.ttldb.DelTTL(v.Key)
+			if k.enableTtl {
+				k.ttldb.DelTTL(v.Key)
+			}
 		}
 	}
 	return k.db.Write(batch, nil)
@@ -165,7 +176,9 @@ func (k *Kvdb) Del(key []byte) error {
 	if err != nil {
 		return err
 	}
-	k.ttldb.DelTTL(key)
+	if k.enableTtl {
+		k.ttldb.DelTTL(key)
+	}
 	return nil
 }
 
@@ -193,7 +206,6 @@ func (k *Kvdb) AllByKV() map[string][]byte {
 	return res
 }
 
-// allKeys returns all keys. Sorted.
 func (k *Kvdb) AllKeys() []string {
 	var keys []string
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
@@ -201,7 +213,6 @@ func (k *Kvdb) AllKeys() []string {
 		keys = append(keys, string(iter.Key()))
 	}
 	iter.Release()
-	//sort.Strings(keys) // To make things deterministic.
 	return keys
 }
 
@@ -257,6 +268,9 @@ func (k *Kvdb) Close() error {
 	err := k.db.Close()
 	if err != nil {
 		return err
+	}
+	if k.enableTtl {
+		k.ttldb.Close()
 	}
 	return nil
 }

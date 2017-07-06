@@ -127,6 +127,6 @@ func (t *ttlRunner) Run() {
 	}()
 }
 
-func (t *ttlRunner) Stop() {
+func (t *ttlRunner) Close() {
 	close(t.quit)
 }
