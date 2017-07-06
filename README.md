@@ -101,16 +101,16 @@ type object struct {
 }
 var o object
 all := kv.AllByObject(o)
-for k, v := range all {
-	fmt.Println(k,v)
+for _, v := range all {
+	fmt.Println(string(v.Key), v.Object)
 }
 ```
 
 ## all keys and raw by value
 ```
 all := kv.AllByKV()
-for k, v := range all {
-	fmt.Println(k,string(v))
+for _, v := range all {
+	fmt.Println(string(v.Key), string(v.Value))
 }
 ```
 
@@ -124,8 +124,8 @@ all, err := kv.KeyStartByObject([]byte("key"), o)
 if err !=nil{
 	fmt.Println(err)
 }
-for k, v := range all {
-	fmt.Println(k,v)
+for _, v := range all {
+	fmt.Println(string(v.Key), v.Object)
 }
 ```
 
@@ -139,16 +139,16 @@ all, err := kv.KeyRangeByObject([]byte("minkey"),[]byte("maxkey123"), o)
 if err !=nil{
 	fmt.Println(err)
 }
-for k, v := range all {
-	fmt.Println(k,v)
+for _, v := range all {
+	fmt.Println(string(v.Key), v.Object)
 }
 ```
 
 ## keys start with 
 ```
 searchkeys := kv.KeyStart([]byte("hello1"))
-for _, k := range searchkeys {
-	fmt.Println(k)
+for _, v := range all {
+	fmt.Println(string(v.Key), string(v.Value))
 }
 ```
 
@@ -158,8 +158,8 @@ randkeys, err := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T0
 if err !=nil{
 	fmt.Println(err)
 }
-for _, k := range randkeys {
-	fmt.Println(k)
+for _, v := range all {
+	fmt.Println(string(v.Key), string(v.Value))
 }
 ```
 
