@@ -32,11 +32,11 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 
 	var o object
 	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o)
-	if err !=nil{
+	if err != nil {
 		panic(err)
 	}
-	for k, v := range all {
-		fmt.Println(k, v)
+	for _, v := range all {
+		fmt.Println(string(v.Key), v.Object)
 	}
 
 	kv.Drop()
@@ -67,8 +67,8 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	for k, v := range all {
-		fmt.Println(k, v)
+	for _, v := range all {
+		fmt.Println(string(v.Key), v.Object)
 	}
 
 	kv.Drop()
@@ -90,8 +90,8 @@ func TestKvdb_AllByKV(t *testing.T) {
 	kv.Put([]byte("testkey1"), []byte("test value2"), 0)
 
 	all := kv.AllByKV()
-	for k, v := range all {
-		fmt.Println(k, string(v))
+	for _, v := range all {
+		fmt.Println(string(v.Key), string(v.Value))
 	}
 
 	kv.Drop()
@@ -118,8 +118,8 @@ func TestKvdb_AllByObject(t *testing.T) {
 
 	var o object
 	all := kv.AllByObject(o)
-	for k, v := range all {
-		fmt.Println(k, v)
+	for _, v := range all {
+		fmt.Println(string(v.Key), v.Object)
 	}
 
 	kv.Drop()
@@ -314,7 +314,7 @@ func TestMaxKeyAndValue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = ioutil.WriteFile("D:\\GoglandProjects\\yiyidb\\yiyidb1.zip",btss,777)
+	err = ioutil.WriteFile("D:\\GoglandProjects\\yiyidb\\yiyidb1.zip", btss, 777)
 	if err != nil {
 		panic(err)
 	}

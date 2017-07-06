@@ -24,6 +24,12 @@ type Kvdb struct {
 	OnExpirse    func(key, value []byte)
 }
 
+type KvItem struct {
+	Key   []byte
+	Value []byte
+	Object interface{}
+}
+
 func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 	var err error
 
@@ -211,28 +217,36 @@ func (k *Kvdb) Del(key []byte) error {
 	return nil
 }
 
-func (k *Kvdb) AllByObject(Ntype interface{}) map[string]interface{} {
-	res := make(map[string]interface{})
+func (k *Kvdb) AllByObject(Ntype interface{}) []*KvItem {
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			res[string(iter.Key())] = t
+			item := &KvItem{
+				Key:   iter.Key(),
+				Object: t,
+			}
+			result = append(result, item)
 		}
 	}
 	iter.Release()
-	return res
+	return result
 }
 
-func (k *Kvdb) AllByKV() map[string][]byte {
-	res := make(map[string][]byte)
+func (k *Kvdb) AllByKV() []*KvItem {
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
-		res[string(iter.Key())] = iter.Value()
+		item := &KvItem{
+			Key:   iter.Key(),
+			Value: iter.Value(),
+		}
+		result = append(result, item)
 	}
 	iter.Release()
-	return res
+	return result
 }
 
 func (k *Kvdb) AllKeys() []string {
@@ -245,64 +259,80 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
-func (k *Kvdb) KeyStart(key []byte) ([]string, error) {
+func (k *Kvdb) KeyStart(key []byte) ([]*KvItem, error) {
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
-	var keys []string
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
-		keys = append(keys, string(iter.Key()))
+		item := &KvItem{
+			Key:   iter.Key(),
+			Value: iter.Value(),
+		}
+		result = append(result, item)
 	}
 	iter.Release()
-	return keys, nil
+	return result, nil
 }
 
-func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) (map[string]interface{}, error) {
+func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error) {
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
-	res := make(map[string]interface{})
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			res[string(iter.Key())] = t
+			item := &KvItem{
+				Key:   iter.Key(),
+				Object: t,
+			}
+			result = append(result, item)
 		}
 	}
 	iter.Release()
-	return res, nil
+	return result, nil
 }
 
-func (k *Kvdb) KeyRange(min, max []byte) ([]string, error) {
+func (k *Kvdb) KeyRange(min, max []byte) ([]*KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
-	var keys []string
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
-		keys = append(keys, string(iter.Key()))
+		item := &KvItem{
+			Key:   iter.Key(),
+			Value: iter.Value(),
+		}
+		result = append(result, item)
 	}
 	iter.Release()
-	return keys, nil
+	return result, nil
 }
 
-func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) (map[string]interface{}, error) {
+func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]*KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
-	res := make(map[string]interface{})
+	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			res[string(iter.Key())] = t
+			item := &KvItem{
+				Key:   iter.Key(),
+				Object: t,
+			}
+			result = append(result, item)
 		}
 	}
 	iter.Release()
-	return res, nil
+	return result, nil
 }
 
 func (k *Kvdb) Close() error {
