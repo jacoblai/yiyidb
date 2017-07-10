@@ -38,7 +38,7 @@ func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 		db:           &leveldb.DB{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		enableTtl:    nttl,
-		maxkv:        512 * MB,
+		maxkv:        256 * MB,
 	}
 
 	opts := &opt.Options{}
@@ -86,7 +86,7 @@ func (k *Kvdb) onExp(key, value []byte) {
 
 func (k *Kvdb) NilTTL(key []byte) error {
 	if len(key) > k.maxkv {
-		return errors.New("out of len 512M")
+		return errors.New("out of len")
 	}
 	if k.enableTtl && k.ttldb.Exists(key) {
 		return k.ttldb.SetTTL(-1, key)
@@ -97,7 +97,7 @@ func (k *Kvdb) NilTTL(key []byte) error {
 
 func (k *Kvdb) SetTTL(key []byte, ttl int) error {
 	if len(key) > k.maxkv {
-		return errors.New("out of len 512M")
+		return errors.New("out of len")
 	}
 	if k.enableTtl && k.Exists(key) {
 		if ttl > 0 {
@@ -112,7 +112,7 @@ func (k *Kvdb) SetTTL(key []byte, ttl int) error {
 
 func (k *Kvdb) GetTTL(key []byte) (float64, error) {
 	if len(key) > k.maxkv {
-		return 0, errors.New("out of len 512M")
+		return 0, errors.New("out of len")
 	}
 	if k.enableTtl {
 		return k.ttldb.GetTTL(key)
@@ -131,7 +131,7 @@ func (k *Kvdb) Exists(key []byte) bool {
 
 func (k *Kvdb) Get(key []byte) ([]byte, error) {
 	if len(key) > k.maxkv {
-		return nil, errors.New("out of len 512M")
+		return nil, errors.New("out of len")
 	}
 	data, err := k.db.Get(key, nil)
 	if err != nil {
@@ -154,7 +154,7 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if len(key) > k.maxkv || len(value) > k.maxkv {
-		return errors.New("out of len 512M")
+		return errors.New("out of len")
 	}
 	err := k.db.Put(key, value, nil)
 	if err != nil {
@@ -184,7 +184,7 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 		switch v.Op {
 		case "put":
 			if len(v.Key) > k.maxkv || len(v.Value) > k.maxkv {
-				return errors.New("out of len 512M")
+				return errors.New("out of len")
 			}
 			batch.Put(v.Key, v.Value)
 			if k.enableTtl && v.Ttl > 0 {
@@ -192,7 +192,7 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 			}
 		case "del":
 			if len(v.Key) > k.maxkv {
-				return errors.New("out of len 512M")
+				return errors.New("out of len")
 			}
 			batch.Delete(v.Key)
 			if k.enableTtl {
@@ -205,7 +205,7 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 
 func (k *Kvdb) Del(key []byte) error {
 	if len(key) > k.maxkv {
-		return errors.New("out of len 512M")
+		return errors.New("out of len")
 	}
 	err := k.db.Delete(key, nil)
 	if err != nil {
@@ -261,7 +261,7 @@ func (k *Kvdb) AllKeys() []string {
 
 func (k *Kvdb) KeyStart(key []byte) ([]*KvItem, error) {
 	if len(key) > k.maxkv {
-		return nil, errors.New("out of len 512M")
+		return nil, errors.New("out of len")
 	}
 	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
@@ -278,7 +278,7 @@ func (k *Kvdb) KeyStart(key []byte) ([]*KvItem, error) {
 
 func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error) {
 	if len(key) > k.maxkv {
-		return nil, errors.New("out of len 512M")
+		return nil, errors.New("out of len")
 	}
 	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
@@ -299,7 +299,7 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error
 
 func (k *Kvdb) KeyRange(min, max []byte) ([]*KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
-		return nil, errors.New("out of len 512M")
+		return nil, errors.New("out of len")
 	}
 	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
@@ -316,7 +316,7 @@ func (k *Kvdb) KeyRange(min, max []byte) ([]*KvItem, error) {
 
 func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]*KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
-		return nil, errors.New("out of len 512M")
+		return nil, errors.New("out of len")
 	}
 	result := make([]*KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
