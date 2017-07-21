@@ -20,12 +20,6 @@ func TestQueueClose(t *testing.T) {
 		t.Error(err)
 	}
 
-	item, err := q.Enqueue([]byte("value"))
-	if err != nil{
-		t.Error(err)
-	}
-	fmt.Print(string(item.Value))
-
 	if q.Length() != 1 {
 		t.Errorf("Expected queue length of 1, got %d", q.Length())
 	}

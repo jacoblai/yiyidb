@@ -51,7 +51,8 @@ func OpenQueue(dataDir string) (*Queue, error) {
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
 	opts.BlockCacheCapacity = 4 * MB
-	opts.Filter = filter.NewBloomFilter(defaultFilterBits)
+	//队列key固定用8个byte所以bloom应该是8*1.44~12优化查询
+	opts.Filter = filter.NewBloomFilter(int(12))
 	opts.Compression = opt.SnappyCompression
 	opts.BlockSize = 4 * KB
 	opts.WriteBuffer = 4 * MB
