@@ -16,7 +16,9 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata8", false)
+	//参数说明
+	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
+	kv, err := OpenKvdb(dir+"/kvdata8", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +50,7 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata7", false)
+	kv, err := OpenKvdb(dir+"/kvdata7", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +82,7 @@ func TestKvdb_AllByKV(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata6", false)
+	kv, err := OpenKvdb(dir+"/kvdata6", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +105,7 @@ func TestKvdb_AllByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata5", false)
+	kv, err := OpenKvdb(dir+"/kvdata5", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +133,7 @@ func TestKvdb_Drop(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata4", false)
+	kv, err := OpenKvdb(dir+"/kvdata4", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -146,7 +148,7 @@ func TestKvdb_Put(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata3", false)
+	kv, err := OpenKvdb(dir+"/kvdata3", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +173,7 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata2", false)
+	kv, err := OpenKvdb(dir+"/kvdata2", false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -216,7 +218,7 @@ func TestOpenKvdb(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata1", true)
+	kv, err := OpenKvdb(dir+"/kvdata1", true, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -254,7 +256,7 @@ func TestTtlRunner_Run(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata", true)
+	kv, err := OpenKvdb(dir+"/kvdata", true, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -294,7 +296,7 @@ func TestMaxKeyAndValue(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata11", false)
+	kv, err := OpenKvdb(dir+"/kvdata11", false, 10)
 	if err != nil {
 		panic(err)
 	}

@@ -17,7 +17,7 @@ type ttlRunner struct {
 	HandleExpirse func(key, value []byte)
 }
 
-func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
+func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*ttlRunner, error) {
 	var err error
 	ttl := &ttlRunner{
 		masterdb:     masterdb,
@@ -27,7 +27,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string) (*ttlRunner, error) {
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
 	opts.BlockCacheCapacity = 4 * MB
-	opts.Filter = filter.NewBloomFilter(defaultFilterBits)
+	opts.Filter = filter.NewBloomFilter(defaultBloomBits)
 	opts.Compression = opt.SnappyCompression
 	opts.BlockSize = 4 * KB
 	opts.WriteBuffer = 4 * MB

@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	defaultFilterBits int = 10
 	KB                int = 1024
 	MB                int = KB * 1024
 	GB                int = MB * 1024

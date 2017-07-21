@@ -11,6 +11,7 @@ import (
 	"os"
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"reflect"
+	"math"
 )
 
 type Kvdb struct {
@@ -25,12 +26,12 @@ type Kvdb struct {
 }
 
 type KvItem struct {
-	Key   []byte
-	Value []byte
+	Key    []byte
+	Value  []byte
 	Object interface{}
 }
 
-func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
+func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 	var err error
 
 	kv := &Kvdb{
@@ -41,10 +42,12 @@ func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 		maxkv:        256 * MB,
 	}
 
+	bloom := Precision(float64(defaultKeyLen) * 1.44, 0, true)
+
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
 	opts.BlockCacheCapacity = 4 * MB
-	opts.Filter = filter.NewBloomFilter(defaultFilterBits)
+	opts.Filter = filter.NewBloomFilter(int(bloom))
 	opts.Compression = opt.SnappyCompression
 	opts.BlockSize = 4 * KB
 	opts.WriteBuffer = 4 * MB
@@ -61,7 +64,7 @@ func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 
 	if kv.enableTtl {
 		//Open TTl
-		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir)
+		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir,int(bloom))
 		if err != nil {
 			return nil, err
 		}
@@ -71,6 +74,14 @@ func OpenKvdb(dataDir string, nttl bool) (*Kvdb, error) {
 	}
 
 	return kv, nil
+}
+
+func Precision(f float64, prec int, round bool) float64 {
+	pow10_n := math.Pow10(prec)
+	if round {
+		return (math.Trunc(f+0.5/pow10_n) * pow10_n) / pow10_n
+	}
+	return math.Trunc((f)*pow10_n) / pow10_n
 }
 
 func (k *Kvdb) Drop() {
@@ -225,7 +236,7 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []*KvItem {
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := &KvItem{
-				Key:   iter.Key(),
+				Key:    iter.Key(),
 				Object: t,
 			}
 			result = append(result, item)
@@ -287,7 +298,7 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := &KvItem{
-				Key:   iter.Key(),
+				Key:    iter.Key(),
 				Object: t,
 			}
 			result = append(result, item)
@@ -325,7 +336,7 @@ func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]*KvItem, 
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := &KvItem{
-				Key:   iter.Key(),
+				Key:    iter.Key(),
 				Object: t,
 			}
 			result = append(result, item)
