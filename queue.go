@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	KB                int = 1024
-	MB                int = KB * 1024
-	GB                int = MB * 1024
+	KB int = 1024
+	MB int = KB * 1024
+	GB int = MB * 1024
 )
 
 var (
-	ErrEmpty = errors.New("queue is empty")
+	ErrEmpty       = errors.New("queue is empty")
 	ErrOutOfBounds = errors.New("ID used is outside range of queue")
-	ErrDBClosed = errors.New("Database is closed")
+	ErrDBClosed    = errors.New("Database is closed")
 )
 
 //FIFO
@@ -77,7 +77,7 @@ func (q *Queue) EnqueueBatch(value [][]byte) error {
 
 	batch := new(leveldb.Batch)
 	for _, v := range value {
-		if len(v) > q.maxkv{
+		if len(v) > q.maxkv {
 			return errors.New("out of len 512M")
 		}
 		item := &QueueItem{
@@ -101,7 +101,7 @@ func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if len(value) > q.maxkv{
+	if len(value) > q.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
 	item := &QueueItem{
@@ -142,6 +142,11 @@ func (q *Queue) Dequeue() (*QueueItem, error) {
 		return nil, err
 	}
 	q.head++
+	//当队列取空后重置游标
+	if q.head == q.tail {
+		q.head = 0
+		q.tail = 0
+	}
 	return item, nil
 }
 

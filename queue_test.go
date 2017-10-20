@@ -104,6 +104,33 @@ func TestQueueDequeue(t *testing.T) {
 	if deqItem.ToString() != compStr {
 		t.Errorf("Expected string to be '%s', got '%s'", compStr, deqItem.ToString())
 	}
+
+	//test head = tail
+	for i := 1; i <= 9; i++ {
+		_, err := q.Dequeue()
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	if q.Length() != 0{
+		t.Errorf("Queue reset index err, got %d", q.Length())
+	}
+
+	if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", 888)); err != nil {
+		t.Error(err)
+	}
+
+	deqItem, err = q.Dequeue()
+	if err != nil {
+		t.Error(err)
+	}
+
+	compStr = "value for item 888"
+
+	if deqItem.ToString() != compStr {
+		t.Errorf("Expected string to be '%s', got '%s'", compStr, deqItem.ToString())
+	}
 }
 
 func TestQueuePeek(t *testing.T) {
@@ -455,7 +482,7 @@ func TestQueue_EnqueueBat(t *testing.T) {
 
 	vals := make([][]byte, 0)
 	for i := 1; i < 500; i++ {
-		vals = append(vals, []byte("test values" + strconv.Itoa(i)))
+		vals = append(vals, []byte("test values"+strconv.Itoa(i)))
 	}
 
 	err = q.EnqueueBatch(vals)
@@ -467,7 +494,7 @@ func TestQueue_EnqueueBat(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if string(item.Value) != "test values499"{
+	if string(item.Value) != "test values499" {
 		t.Error("not encode all")
 	}
 }
