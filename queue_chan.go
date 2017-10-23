@@ -13,26 +13,29 @@ import (
 )
 
 //FIFO
-type QueueChan struct {
+type MixQueue struct {
 	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
-	head         uint64
-	tail         uint64
 	isOpen       bool
 	iteratorOpts *opt.ReadOptions
 	maxkv        int
+	mats         map[string]*mat
 }
 
-func OpenQueueChan(dataDir string, defaultKeyLen int) (*QueueChan, error) {
-	var err error
+type mat struct {
+	mixName string
+	head    uint64
+	tail    uint64
+}
 
-	q := &QueueChan{
+func OpenQueueChan(dataDir string, defaultKeyLen int) (*MixQueue, error) {
+	var err error
+	q := &MixQueue{
 		DataDir:      dataDir,
 		db:           &leveldb.DB{},
-		head:         0,
-		tail:         0,
 		isOpen:       false,
+		mats:         make(map[string]*mat),
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		maxkv:        512 * MB,
 	}
@@ -55,10 +58,34 @@ func OpenQueueChan(dataDir string, defaultKeyLen int) (*QueueChan, error) {
 		return nil, err
 	}
 	q.isOpen = true
-	return q, nil
+	return q, q.init()
 }
 
-func (q *QueueChan) Enqueue(chname string, value []byte) (*QueueItem, error) {
+func (q *MixQueue) init() error {
+	iter := q.db.NewIterator(nil, q.iteratorOpts)
+	defer iter.Release()
+	for iter.Next() {
+		mixName := q.keyName(iter.Key())
+		if _, ok := q.mats[mixName]; !ok {
+			q.mats[mixName] = &mat{mixName: mixName, head: 0, tail: 0}
+		}
+	}
+	if len(q.mats) > 0 {
+		for k, v := range q.mats {
+			rg := util.BytesPrefix([]byte(k))
+			iter.Seek(rg.Start)
+			v.head = q.keyToID(iter.Key())
+			var lastid uint64
+			for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
+				lastid = q.keyToID(iter.Key())
+			}
+			v.tail = lastid
+		}
+	}
+	return iter.Error()
+}
+
+func (q *MixQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
@@ -67,52 +94,83 @@ func (q *QueueChan) Enqueue(chname string, value []byte) (*QueueItem, error) {
 	if len(value) > q.maxkv {
 		return nil, errors.New("out of len 512M")
 	}
-	fix := chname + "-"
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(fix)), q.iteratorOpts)
-	defer iter.Release()
-	iter.Last()
-	tail := q.keyToID(iter.Key()) + 1
-	item := &QueueItem{
-		ID:    tail,
-		Key:   q.idToKey(fix,tail),
-		Value: value,
+	if mt, ok := q.mats[chname]; ok {
+		if err := q.db.Put(q.idToKey(mt.mixName, mt.tail+1), value, nil); err != nil {
+			return nil, err
+		}
+		mt.tail++
+		return &QueueItem{ID: mt.tail, Key: q.idToKey(chname, mt.tail), Value: value}, nil
+	} else {
+		item := &QueueItem{ID: 1, Key: q.idToKey(chname, 1), Value: value}
+		if err := q.db.Put(item.Key, item.Value, nil); err != nil {
+			return nil, err
+		}
+		q.mats[chname] = &mat{mixName: chname, tail: item.ID, head: 0}
+		return item, nil
 	}
-	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
-		return nil, err
-	}
-	return item, nil
 }
 
-func (q *QueueChan) Dequeue(chname string) (*QueueItem, error) {
-	q.RLock()
-	defer q.RUnlock()
+func (q *MixQueue) Dequeue(chname string) (*QueueItem, error) {
+	q.Lock()
+	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	fix := chname + "-"
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(fix)), q.iteratorOpts)
-	defer iter.Release()
-	iter.First()
+	if mt, ok := q.mats[chname]; ok {
+		item, err := q.getItemByID(chname, mt.head+1)
+		if err != nil {
+			return nil, err
+		}
+		if err := q.db.Delete(item.Key, nil); err != nil {
+			return nil, err
+		}
+		mt.head++
+		//当队列取空后重置游标
+		if mt.head == mt.tail {
+			mt.head = 0
+			mt.tail = 0
+		}
+		return item, nil
+	} else {
+		return nil, errors.New("ch not ext")
+	}
+}
 
-	item := &QueueItem{ID: q.keyToID(iter.Key()), Key: iter.Key()}
-	item.Value, _ = q.db.Get(item.Key, nil)
-	if err := q.db.Delete(item.Key, nil); err != nil {
+func (q *MixQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
+	hq := q.mats[chname]
+	if hq.tail-hq.head == 0 {
+		return nil, ErrEmpty
+	} else if id <= hq.head || id > hq.tail {
+		return nil, ErrOutOfBounds
+	}
+	var err error
+	item := &QueueItem{ID: id, Key: q.idToKey(chname, id)}
+	if item.Value, err = q.db.Get(item.Key, nil); err != nil {
 		return nil, err
 	}
 	return item, nil
 }
 
-func (q *QueueChan) idToKey(chname string, id uint64) []byte {
+func (q *MixQueue) idToKey(chname string, id uint64) []byte {
 	key := make([]byte, 8)
+	chname = chname + "-"
 	binary.BigEndian.PutUint64(key, id)
-	rfix := make([]byte,8+len(chname))
+	rfix := make([]byte, 8+len(chname))
 	fix := []byte(chname)
-	copy(rfix,fix)
-	copy(rfix[len(fix):],key[:])
+	copy(rfix, fix)
+	copy(rfix[len(fix):], key[:])
 	return rfix
 }
 
-func (q *QueueChan) keyToID(key []byte) uint64 {
+func (q *MixQueue) keyName(key []byte) string {
+	k := bytes.Split(key, []byte("-"))
+	if len(k) == 2 {
+		return string(k[0])
+	}
+	return ""
+}
+
+func (q *MixQueue) keyToID(key []byte) uint64 {
 	k := bytes.Split(key, []byte("-"))
 	if len(k) == 2 {
 		return binary.BigEndian.Uint64(k[1])
@@ -120,23 +178,12 @@ func (q *QueueChan) keyToID(key []byte) uint64 {
 	return 0
 }
 
-func (q *QueueChan) Length(chname string) uint64 {
-	fix := chname + "-"
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(fix)), q.iteratorOpts)
-	defer iter.Release()
-	iter.First()
-	tail := q.keyToID(iter.Key())
-	iter.Last()
-	head := q.keyToID(iter.Key())
-	return tail - head
-}
-
-func (q *QueueChan) Drop() {
+func (q *MixQueue) Drop() {
 	q.Close()
 	os.RemoveAll(q.DataDir)
 }
 
-func (q *QueueChan) Close() {
+func (q *MixQueue) Close() {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
