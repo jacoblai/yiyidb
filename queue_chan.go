@@ -13,7 +13,7 @@ import (
 )
 
 //FIFO
-type MixQueue struct {
+type ChanQueue struct {
 	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
@@ -29,9 +29,9 @@ type mat struct {
 	tail    uint64
 }
 
-func OpenQueueChan(dataDir string, defaultKeyLen int) (*MixQueue, error) {
+func OpenChanQueue(dataDir string, defaultKeyLen int) (*ChanQueue, error) {
 	var err error
-	q := &MixQueue{
+	q := &ChanQueue{
 		DataDir:      dataDir,
 		db:           &leveldb.DB{},
 		isOpen:       false,
@@ -61,7 +61,7 @@ func OpenQueueChan(dataDir string, defaultKeyLen int) (*MixQueue, error) {
 	return q, q.init()
 }
 
-func (q *MixQueue) init() error {
+func (q *ChanQueue) init() error {
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	for iter.Next() {
@@ -85,7 +85,7 @@ func (q *MixQueue) init() error {
 	return iter.Error()
 }
 
-func (q *MixQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
+func (q *ChanQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
@@ -110,7 +110,7 @@ func (q *MixQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
 	}
 }
 
-func (q *MixQueue) Dequeue(chname string) (*QueueItem, error) {
+func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
@@ -136,7 +136,7 @@ func (q *MixQueue) Dequeue(chname string) (*QueueItem, error) {
 	}
 }
 
-func (q *MixQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
+func (q *ChanQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
 	hq := q.mats[chname]
 	if hq.tail-hq.head == 0 {
 		return nil, ErrEmpty
@@ -151,18 +151,13 @@ func (q *MixQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
 	return item, nil
 }
 
-func (q *MixQueue) idToKey(chname string, id uint64) []byte {
-	key := make([]byte, 8)
-	chname = chname + "-"
-	binary.BigEndian.PutUint64(key, id)
-	rfix := make([]byte, 8+len(chname))
-	fix := []byte(chname)
-	copy(rfix, fix)
-	copy(rfix[len(fix):], key[:])
-	return rfix
+func (q *ChanQueue) idToKey(chname string, id uint64) []byte {
+	kid := make([]byte, 8)
+	binary.BigEndian.PutUint64(kid, id)
+	return append([]byte(chname+"-"), kid...)
 }
 
-func (q *MixQueue) keyName(key []byte) string {
+func (q *ChanQueue) keyName(key []byte) string {
 	k := bytes.Split(key, []byte("-"))
 	if len(k) == 2 {
 		return string(k[0])
@@ -170,7 +165,7 @@ func (q *MixQueue) keyName(key []byte) string {
 	return ""
 }
 
-func (q *MixQueue) keyToID(key []byte) uint64 {
+func (q *ChanQueue) keyToID(key []byte) uint64 {
 	k := bytes.Split(key, []byte("-"))
 	if len(k) == 2 {
 		return binary.BigEndian.Uint64(k[1])
@@ -178,12 +173,12 @@ func (q *MixQueue) keyToID(key []byte) uint64 {
 	return 0
 }
 
-func (q *MixQueue) Drop() {
+func (q *ChanQueue) Drop() {
 	q.Close()
 	os.RemoveAll(q.DataDir)
 }
 
-func (q *MixQueue) Close() {
+func (q *ChanQueue) Close() {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {

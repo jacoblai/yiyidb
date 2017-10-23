@@ -8,7 +8,7 @@ import (
 
 func TestQueueChan_Enqueue(t *testing.T) {
 	file := fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	q, err := OpenQueueChan(file,10)
+	q, err := OpenChanQueue(file,10)
 	if err != nil {
 		t.Error(err)
 	}
@@ -34,7 +34,7 @@ func TestQueueChan_Enqueue(t *testing.T) {
 		fmt.Println("deq:",deqItem.ID, string(deqItem.Value))
 	}
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 8; i++ {
 		deqItem, err := q.Dequeue("quy")
 		if err != nil {
 			t.Error(err)
@@ -46,7 +46,7 @@ func TestQueueChan_Enqueue(t *testing.T) {
 func BenchmarkQueueChan_Dequeue(b *testing.B) {
 	// Open test database
 	file := fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	q, err := OpenQueueChan(file,3)
+	q, err := OpenChanQueue(file,3)
 	if err != nil {
 		b.Error(err)
 	}
