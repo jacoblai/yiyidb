@@ -153,6 +153,29 @@ func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 	}
 }
 
+func (q *ChanQueue) PeekStart(chname string) ([]*QueueItem, error) {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return nil, ErrDBClosed
+	}
+	if len(chname) > q.maxkv {
+		return nil, errors.New("out of len")
+	}
+	result := make([]*QueueItem, 0)
+	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname)), q.iteratorOpts)
+	for iter.Next() {
+		item := &QueueItem{
+			ID:    q.keyToID(iter.Key()),
+			Key:   iter.Key(),
+			Value: iter.Value(),
+		}
+		result = append(result, item)
+	}
+	iter.Release()
+	return result, nil
+}
+
 func (q *ChanQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
 	hq := q.mats[chname]
 	if hq.tail-hq.head == 0 {
