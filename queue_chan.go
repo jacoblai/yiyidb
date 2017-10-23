@@ -136,6 +136,19 @@ func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
 	}
 }
 
+func (q *ChanQueue) GetMetal(chname string) (uint64, uint64) {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return 0,0
+	}
+	if mt, ok := q.mats[chname]; ok {
+		return mt.head, mt.tail
+	} else {
+		return 0,0
+	}
+}
+
 func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
