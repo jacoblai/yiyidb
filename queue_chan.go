@@ -136,6 +136,23 @@ func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
 	}
 }
 
+func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return nil, ErrDBClosed
+	}
+	if mt, ok := q.mats[chname]; ok {
+		item, err := q.getItemByID(chname, mt.head+1)
+		if err != nil {
+			return nil, err
+		}
+		return item, nil
+	} else {
+		return nil, errors.New("ch not ext")
+	}
+}
+
 func (q *ChanQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
 	hq := q.mats[chname]
 	if hq.tail-hq.head == 0 {
