@@ -10,18 +10,6 @@ import (
 	"errors"
 )
 
-const (
-	KB int = 1024
-	MB int = KB * 1024
-	GB int = MB * 1024
-)
-
-var (
-	ErrEmpty       = errors.New("queue is empty")
-	ErrOutOfBounds = errors.New("ID used is outside range of queue")
-	ErrDBClosed    = errors.New("Database is closed")
-)
-
 //FIFO
 type Queue struct {
 	sync.RWMutex
@@ -82,7 +70,7 @@ func (q *Queue) EnqueueBatch(value [][]byte) error {
 		}
 		item := &QueueItem{
 			ID:    q.tail + 1,
-			Key:   idToKey(q.tail + 1),
+			Key:   idToKeyPure(q.tail + 1),
 			Value: v,
 		}
 		batch.Put(item.Key, item.Value)
@@ -106,7 +94,7 @@ func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	}
 	item := &QueueItem{
 		ID:    q.tail + 1,
-		Key:   idToKey(q.tail + 1),
+		Key:   idToKeyPure(q.tail + 1),
 		Value: value,
 	}
 	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
@@ -188,7 +176,7 @@ func (q *Queue) Update(id uint64, newValue []byte) (*QueueItem, error) {
 	}
 	item := &QueueItem{
 		ID:    id,
-		Key:   idToKey(id),
+		Key:   idToKeyPure(id),
 		Value: newValue,
 	}
 	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
@@ -238,7 +226,7 @@ func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
 		return nil, ErrOutOfBounds
 	}
 	var err error
-	item := &QueueItem{ID: id, Key: idToKey(id)}
+	item := &QueueItem{ID: id, Key: idToKeyPure(id)}
 	if item.Value, err = q.db.Get(item.Key, nil); err != nil {
 		return nil, err
 	}
@@ -249,10 +237,10 @@ func (q *Queue) init() error {
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	if iter.First() {
-		q.head = keyToID(iter.Key()) - 1
+		q.head = keyToIDPure(iter.Key()) - 1
 	}
 	if iter.Last() {
-		q.tail = keyToID(iter.Key())
+		q.tail = keyToIDPure(iter.Key())
 	}
 	return iter.Error()
 }

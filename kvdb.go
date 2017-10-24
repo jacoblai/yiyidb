@@ -1,7 +1,6 @@
 package yiyidb
 
 import (
-	"sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -15,11 +14,12 @@ import (
 )
 
 type Kvdb struct {
-	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
 	ttldb        *ttlRunner
 	enableTtl    bool
+	enableChan   bool
+	mats         map[string]*mat
 	maxkv        int
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
@@ -31,7 +31,7 @@ type KvItem struct {
 	Object interface{}
 }
 
-func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
+func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 	var err error
 
 	kv := &Kvdb{
@@ -39,10 +39,12 @@ func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 		db:           &leveldb.DB{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		enableTtl:    nttl,
+		enableChan:   nChan,
+		mats:         make(map[string]*mat),
 		maxkv:        256 * MB,
 	}
 
-	bloom := Precision(float64(defaultKeyLen) * 1.44, 0, true)
+	bloom := Precision(float64(defaultKeyLen)*1.44, 0, true)
 
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
@@ -64,7 +66,7 @@ func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 
 	if kv.enableTtl {
 		//Open TTl
-		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir,int(bloom))
+		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir, int(bloom))
 		if err != nil {
 			return nil, err
 		}
@@ -72,6 +74,8 @@ func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 		//run ttl func
 		kv.ttldb.Run()
 	}
+
+	kv.init()
 
 	return kv, nil
 }
@@ -228,17 +232,17 @@ func (k *Kvdb) Del(key []byte) error {
 	return nil
 }
 
-func (k *Kvdb) AllByObject(Ntype interface{}) []*KvItem {
-	result := make([]*KvItem, 0)
+func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			item := &KvItem{
-				Key:    iter.Key(),
-				Object: t,
-			}
+			item := KvItem{}
+			item.Key = make([]byte,len(iter.Key()))
+			copy(item.Key, iter.Key())
+			item.Object = t
 			result = append(result, item)
 		}
 	}
@@ -246,14 +250,15 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []*KvItem {
 	return result
 }
 
-func (k *Kvdb) AllByKV() []*KvItem {
-	result := make([]*KvItem, 0)
+func (k *Kvdb) AllByKV() []KvItem {
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
-		item := &KvItem{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
+		item := KvItem{}
+		item.Key = make([]byte,len(iter.Key()))
+		item.Value = make([]byte,len(iter.Value()))
+		copy(item.Key, iter.Key())
+		copy(item.Value, iter.Value())
 		result = append(result, item)
 	}
 	iter.Release()
@@ -270,37 +275,38 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
-func (k *Kvdb) KeyStart(key []byte) ([]*KvItem, error) {
+func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
-	result := make([]*KvItem, 0)
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
-		item := &KvItem{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
+		item := KvItem{}
+		item.Key = make([]byte,len(iter.Key()))
+		item.Value = make([]byte,len(iter.Value()))
+		copy(item.Key, iter.Key())
+		copy(item.Value, iter.Value())
 		result = append(result, item)
 	}
 	iter.Release()
 	return result, nil
 }
 
-func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error) {
+func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error) {
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
-	result := make([]*KvItem, 0)
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			item := &KvItem{
-				Key:    iter.Key(),
-				Object: t,
-			}
+			item := KvItem{}
+			item.Key = make([]byte,len(iter.Key()))
+			copy(item.Key, iter.Key())
+			item.Object = t
 			result = append(result, item)
 		}
 	}
@@ -308,37 +314,38 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]*KvItem, error
 	return result, nil
 }
 
-func (k *Kvdb) KeyRange(min, max []byte) ([]*KvItem, error) {
+func (k *Kvdb) KeyRange(min, max []byte) ([]KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
-	result := make([]*KvItem, 0)
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
-		item := &KvItem{
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
+		item := KvItem{}
+		item.Key = make([]byte,len(iter.Key()))
+		item.Value = make([]byte,len(iter.Value()))
+		copy(item.Key, iter.Key())
+		copy(item.Value, iter.Value())
 		result = append(result, item)
 	}
 	iter.Release()
 	return result, nil
 }
 
-func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]*KvItem, error) {
+func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]KvItem, error) {
 	if len(min) > k.maxkv || len(max) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
-	result := make([]*KvItem, 0)
+	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
-			item := &KvItem{
-				Key:    iter.Key(),
-				Object: t,
-			}
+			item := KvItem{}
+			item.Key = make([]byte,len(iter.Key()))
+			copy(item.Key, iter.Key())
+			item.Object = t
 			result = append(result, item)
 		}
 	}

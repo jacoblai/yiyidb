@@ -8,7 +8,6 @@ import (
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
-	"encoding/binary"
 	"os"
 )
 
@@ -65,7 +64,7 @@ func (q *ChanQueue) init() error {
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	for iter.Next() {
-		mixName := q.keyName(iter.Key())
+		mixName := keyName(iter.Key())
 		if _, ok := q.mats[mixName]; !ok {
 			q.mats[mixName] = &mat{mixName: mixName, head: 0, tail: 0}
 		}
@@ -74,10 +73,10 @@ func (q *ChanQueue) init() error {
 		for k, v := range q.mats {
 			rg := util.BytesPrefix([]byte(k))
 			iter.Seek(rg.Start)
-			v.head = q.keyToID(iter.Key())
+			v.head = keyToID(iter.Key())
 			var lastid uint64
 			for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
-				lastid = q.keyToID(iter.Key())
+				lastid = keyToID(iter.Key())
 			}
 			v.tail = lastid
 		}
@@ -95,13 +94,13 @@ func (q *ChanQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
 		return nil, errors.New("out of len 512M")
 	}
 	if mt, ok := q.mats[chname]; ok {
-		if err := q.db.Put(q.idToKey(mt.mixName, mt.tail+1), value, nil); err != nil {
+		if err := q.db.Put(idToKey(mt.mixName, mt.tail+1), value, nil); err != nil {
 			return nil, err
 		}
 		mt.tail++
-		return &QueueItem{ID: mt.tail, Key: q.idToKey(chname, mt.tail), Value: value}, nil
+		return &QueueItem{ID: mt.tail, Key: idToKey(chname, mt.tail), Value: value}, nil
 	} else {
-		item := &QueueItem{ID: 1, Key: q.idToKey(chname, 1), Value: value}
+		item := &QueueItem{ID: 1, Key: idToKey(chname, 1), Value: value}
 		if err := q.db.Put(item.Key, item.Value, nil); err != nil {
 			return nil, err
 		}
@@ -179,7 +178,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]*QueueItem, error) {
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname)), q.iteratorOpts)
 	for iter.Next() {
 		item := &QueueItem{
-			ID:    q.keyToID(iter.Key()),
+			ID:    keyToID(iter.Key()),
 			Key:   iter.Key(),
 			Value: iter.Value(),
 		}
@@ -197,33 +196,11 @@ func (q *ChanQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
 		return nil, ErrOutOfBounds
 	}
 	var err error
-	item := &QueueItem{ID: id, Key: q.idToKey(chname, id)}
+	item := &QueueItem{ID: id, Key: idToKey(chname, id)}
 	if item.Value, err = q.db.Get(item.Key, nil); err != nil {
 		return nil, err
 	}
 	return item, nil
-}
-
-func (q *ChanQueue) idToKey(chname string, id uint64) []byte {
-	kid := make([]byte, 8)
-	binary.BigEndian.PutUint64(kid, id)
-	return append([]byte(chname+"-"), kid...)
-}
-
-func (q *ChanQueue) keyName(key []byte) string {
-	k := bytes.Split(key, []byte("-"))
-	if len(k) == 2 {
-		return string(k[0])
-	}
-	return ""
-}
-
-func (q *ChanQueue) keyToID(key []byte) uint64 {
-	k := bytes.Split(key, []byte("-"))
-	if len(k) == 2 {
-		return binary.BigEndian.Uint64(k[1])
-	}
-	return 0
 }
 
 func (q *ChanQueue) Drop() {

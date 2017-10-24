@@ -18,7 +18,7 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 
 	//参数说明
 	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
-	kv, err := OpenKvdb(dir+"/kvdata8", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata8", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +50,7 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata7", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata7", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +82,7 @@ func TestKvdb_AllByKV(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata6", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata6", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -90,6 +90,9 @@ func TestKvdb_AllByKV(t *testing.T) {
 
 	kv.Put([]byte("testkey"), []byte("test value1"), 0)
 	kv.Put([]byte("testkey1"), []byte("test value2"), 0)
+
+	kv.Put([]byte("testkey4"), []byte("test value1"), 0)
+	kv.Put([]byte("testkey5"), []byte("test value2"), 0)
 
 	all := kv.AllByKV()
 	for _, v := range all {
@@ -99,13 +102,39 @@ func TestKvdb_AllByKV(t *testing.T) {
 	kv.Drop()
 }
 
+func TestKvdb_AllByKVChan(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+
+	kv, err := OpenKvdb(dir+"/kvdata9", true,false, 10)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	kv.PutChan("jac", []byte("yudfuud dekjrker"), 0)
+	kv.PutChan("jac", []byte("dfdfseeee ee value2"), 0)
+
+	kv.PutChan("yum", []byte("test value1"), 0)
+	kv.PutChan("yum", []byte("test value2"), 0)
+
+	all := kv.AllByKVChan("yum")
+	for _, v := range all {
+		fmt.Println(string(v.Value))
+	}
+
+	//kv.Drop()
+}
+
 func TestKvdb_AllByObject(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata5", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata5", false, false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -133,7 +162,7 @@ func TestKvdb_Drop(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata4", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata4", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -148,7 +177,7 @@ func TestKvdb_Put(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata3", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata3", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -173,7 +202,7 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata2", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata2", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -218,7 +247,7 @@ func TestOpenKvdb(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata1", true, 10)
+	kv, err := OpenKvdb(dir+"/kvdata1", true,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +285,7 @@ func TestTtlRunner_Run(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata", true, 10)
+	kv, err := OpenKvdb(dir+"/kvdata", true,false, 10)
 	if err != nil {
 		panic(err)
 	}
@@ -296,7 +325,7 @@ func TestMaxKeyAndValue(t *testing.T) {
 		panic(err)
 	}
 
-	kv, err := OpenKvdb(dir+"/kvdata11", false, 10)
+	kv, err := OpenKvdb(dir+"/kvdata11", false,false, 10)
 	if err != nil {
 		panic(err)
 	}
