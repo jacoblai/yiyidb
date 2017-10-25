@@ -280,6 +280,16 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
+func (k *Kvdb) KeyStartKeys(key []byte) []string {
+	var keys []string
+	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	for iter.Next() {
+		keys = append(keys, string(iter.Key()))
+	}
+	iter.Release()
+	return keys
+}
+
 func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len")
