@@ -215,7 +215,11 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
 			}
 		}
 	}
-	return k.db.Write(batch, nil)
+	err := k.db.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (k *Kvdb) Del(key []byte) error {
@@ -229,6 +233,7 @@ func (k *Kvdb) Del(key []byte) error {
 	if k.enableTtl {
 		k.ttldb.DelTTL(key)
 	}
+	k.delchan(key)
 	return nil
 }
 
@@ -240,7 +245,7 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := KvItem{}
-			item.Key = make([]byte,len(iter.Key()))
+			item.Key = make([]byte, len(iter.Key()))
 			copy(item.Key, iter.Key())
 			item.Object = t
 			result = append(result, item)
@@ -255,8 +260,8 @@ func (k *Kvdb) AllByKV() []KvItem {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
 		item := KvItem{}
-		item.Key = make([]byte,len(iter.Key()))
-		item.Value = make([]byte,len(iter.Value()))
+		item.Key = make([]byte, len(iter.Key()))
+		item.Value = make([]byte, len(iter.Value()))
 		copy(item.Key, iter.Key())
 		copy(item.Value, iter.Value())
 		result = append(result, item)
@@ -283,8 +288,8 @@ func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
 		item := KvItem{}
-		item.Key = make([]byte,len(iter.Key()))
-		item.Value = make([]byte,len(iter.Value()))
+		item.Key = make([]byte, len(iter.Key()))
+		item.Value = make([]byte, len(iter.Value()))
 		copy(item.Key, iter.Key())
 		copy(item.Value, iter.Value())
 		result = append(result, item)
@@ -304,7 +309,7 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error)
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := KvItem{}
-			item.Key = make([]byte,len(iter.Key()))
+			item.Key = make([]byte, len(iter.Key()))
 			copy(item.Key, iter.Key())
 			item.Object = t
 			result = append(result, item)
@@ -322,8 +327,8 @@ func (k *Kvdb) KeyRange(min, max []byte) ([]KvItem, error) {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		item := KvItem{}
-		item.Key = make([]byte,len(iter.Key()))
-		item.Value = make([]byte,len(iter.Value()))
+		item.Key = make([]byte, len(iter.Key()))
+		item.Value = make([]byte, len(iter.Value()))
 		copy(item.Key, iter.Key())
 		copy(item.Value, iter.Value())
 		result = append(result, item)
@@ -343,7 +348,7 @@ func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]KvItem, e
 		err := msgpack.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := KvItem{}
-			item.Key = make([]byte,len(iter.Key()))
+			item.Key = make([]byte, len(iter.Key()))
 			copy(item.Key, iter.Key())
 			item.Object = t
 			result = append(result, item)
