@@ -13,14 +13,14 @@ func (k *Kvdb) PutChan(chname string, value []byte, ttl int) error {
 		return errors.New("out of len")
 	}
 	if mt, ok := k.mats[chname]; ok {
-		if err := k.db.Put(idToKey(chname, mt.tail+1), value, nil); err != nil {
+		nk := idToKey(chname,mt.tail+1)
+		if err := k.db.Put(nk, value, nil); err != nil {
 			return err
 		}
-		mt.tail++
-		mt.head++
 		if k.enableTtl && ttl > 0 {
-			k.ttldb.SetTTL(ttl, idToKey(chname, mt.tail+1))
+			k.ttldb.SetTTL(ttl, nk)
 		}
+		k.addchan(nk)
 		return nil
 	} else {
 		if err := k.db.Put(idToKey(chname, 1), value, nil); err != nil {
@@ -91,7 +91,7 @@ func (k *Kvdb) getmtinfo(chname string) (uint64, uint64) {
 func (k *Kvdb) setmtinfo(chname string, h, t uint64) {
 	if mt, ok := k.mats[chname]; ok {
 		mt.head = h
-		mt.tail = mt.tail
+		mt.tail = t
 	}
 }
 

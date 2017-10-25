@@ -120,12 +120,14 @@ func TestKvdb_AllByKVChan(t *testing.T) {
 	kv.PutChan("yum", []byte("test value1"), 0)
 	kv.PutChan("yum", []byte("test value2"), 0)
 
-	all := kv.AllByKVChan("yum")
+	kv.Del(idToKey("jac", 1))
+
+	all := kv.AllByKVChan("jac")
 	for _, v := range all {
-		fmt.Println(string(v.Value))
+		fmt.Println(string(keyToID(v.Key)), string(v.Value))
 	}
 
-	//kv.Drop()
+	kv.Drop()
 }
 
 func TestKvdb_AllByObject(t *testing.T) {
