@@ -104,6 +104,19 @@ func (k *Kvdb) addchan(key []byte) {
 	}
 }
 
+func (k *Kvdb) Clear(chname string) error {
+	all := k.KeyStartKeys([]byte(chname))
+	items := make([]BatItem, 0)
+	for _, v := range all {
+		item := BatItem{
+			Op:  "del",
+			Key: []byte(v),
+		}
+		items = append(items, item)
+	}
+	return k.BatPutOrDel(&items)
+}
+
 func (k *Kvdb) delchan(key []byte) {
 	if k.enableChan {
 		if mt, ok := k.mats[keyName(key)]; ok {
