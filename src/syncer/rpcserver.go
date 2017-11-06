@@ -11,21 +11,6 @@ import (
 	"io"
 )
 
-type Worker struct {
-	Name string
-}
-
-func NewWorker() *Worker {
-	return &Worker{"test"}
-}
-
-func (w *Worker) DoJob(task string, reply *string) error {
-	log.Println("Worker: do job", task)
-	time.Sleep(time.Second * 3)
-	*reply = "OK"
-	return nil
-}
-
 func TimeoutCoder(f func(interface{}) error, e interface{}, msg string) error {
 	echan := make(chan error, 1)
 	go func() { echan <- f(e) }()
@@ -80,11 +65,17 @@ func (c *gobServerCodec) Close() error {
 	return c.rwc.Close()
 }
 
-func ListenRPC() {
-	rpc.Register(NewWorker())
-	l, e := net.Listen("tcp", ":4200")
-	if e != nil {
-		log.Fatal("Error: listen 4200 error:", e)
+type RpcServer struct {
+}
+
+func(f *RpcServer) Register(wk interface{}){
+	rpc.Register(wk)
+}
+
+func(f *RpcServer) ListenRPC(addr string) {
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal("Error: listen error:", err)
 	}
 	go func() {
 		for {

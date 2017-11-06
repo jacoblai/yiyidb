@@ -39,8 +39,11 @@ func (c *gobClientCodec) Close() error {
 	return c.rwc.Close()
 }
 
-func call(srv string, rpcname string, args interface{}, reply interface{}) error {
-	conn, err := net.DialTimeout("tcp", srv+":4200", time.Second*10)
+type RpcCleint struct {
+}
+
+func (r *RpcCleint) Call(srv string, rpcname string, args interface{}, reply interface{}) error {
+	conn, err := net.DialTimeout("tcp", srv, time.Second*10)
 	if err != nil {
 		return fmt.Errorf("ConnectError: %s", err.Error())
 	}
