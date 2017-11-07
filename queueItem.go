@@ -34,13 +34,13 @@ func (i *QueueItem) ToObject(value interface{}) error {
 	return err
 }
 
-func idToKeyPure(id uint64) []byte {
+func IdToKeyPure(id uint64) []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, id)
 	return key
 }
 
-func keyToIDPure(key []byte) uint64 {
+func KeyToIDPure(key []byte) uint64 {
 	return binary.BigEndian.Uint64(key)
 }
 

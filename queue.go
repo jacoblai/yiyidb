@@ -70,7 +70,7 @@ func (q *Queue) EnqueueBatch(value [][]byte) error {
 		}
 		item := &QueueItem{
 			ID:    q.tail + 1,
-			Key:   idToKeyPure(q.tail + 1),
+			Key:   IdToKeyPure(q.tail + 1),
 			Value: v,
 		}
 		batch.Put(item.Key, item.Value)
@@ -94,7 +94,7 @@ func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
 	}
 	item := &QueueItem{
 		ID:    q.tail + 1,
-		Key:   idToKeyPure(q.tail + 1),
+		Key:   IdToKeyPure(q.tail + 1),
 		Value: value,
 	}
 	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
@@ -176,7 +176,7 @@ func (q *Queue) Update(id uint64, newValue []byte) (*QueueItem, error) {
 	}
 	item := &QueueItem{
 		ID:    id,
-		Key:   idToKeyPure(id),
+		Key:   IdToKeyPure(id),
 		Value: newValue,
 	}
 	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
@@ -226,7 +226,7 @@ func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
 		return nil, ErrOutOfBounds
 	}
 	var err error
-	item := &QueueItem{ID: id, Key: idToKeyPure(id)}
+	item := &QueueItem{ID: id, Key: IdToKeyPure(id)}
 	if item.Value, err = q.db.Get(item.Key, nil); err != nil {
 		return nil, err
 	}
@@ -237,10 +237,10 @@ func (q *Queue) init() error {
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	if iter.First() {
-		q.head = keyToIDPure(iter.Key()) - 1
+		q.head = KeyToIDPure(iter.Key()) - 1
 	}
 	if iter.Last() {
-		q.tail = keyToIDPure(iter.Key())
+		q.tail = KeyToIDPure(iter.Key())
 	}
 	return iter.Error()
 }
