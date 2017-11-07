@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 	"fmt"
+	"log"
 )
 
 func TestListenRPC(t *testing.T) {
@@ -16,9 +17,9 @@ func TestListenRPC(t *testing.T) {
 	for i := 0; i < N; i++ {
 		//go func(i int) {
 			client := RpcCleint{}
-			var rep string
+			var rep []byte
 			nt := time.Now()
-			err := client.Call("localhost:4200", "Worker.DoJob", strconv.Itoa(i), &rep)
+			err := client.Call("localhost:4200", "Worker.DoJob", []byte(strconv.Itoa(i)), &rep)
 			if err != nil {
 				t.Error(err)
 			} else {
@@ -41,9 +42,9 @@ func NewWorker() *Worker {
 	return &Worker{"test"}
 }
 
-func (w *Worker) DoJob(task string, reply *string) error {
-	//log.Println("Worker: do job", task)
+func (w *Worker) DoJob(task []byte, reply *[]byte) error {
+	log.Println("Worker: do job", string(task))
 	//time.Sleep(time.Second * 3)
-	*reply = "OK"
+	*reply = []byte("OK")
 	return nil
 }
