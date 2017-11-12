@@ -11,9 +11,11 @@ import (
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"reflect"
 	"math"
+	"sync"
 )
 
 type Kvdb struct {
+	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
 	ttldb        *ttlRunner

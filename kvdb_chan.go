@@ -12,6 +12,8 @@ func (k *Kvdb) PutChan(chname string, value []byte, ttl int) error {
 	if len(value) > k.maxkv {
 		return errors.New("out of len")
 	}
+	k.Lock()
+	defer k.Unlock()
 	if mt, ok := k.mats[chname]; ok {
 		nk := idToKey(chname,mt.tail+1)
 		if err := k.db.Put(nk, value, nil); err != nil {
@@ -82,6 +84,8 @@ func (k *Kvdb) BatPutOrDelChan(chname string, items *[]BatItem) error {
 }
 
 func (k *Kvdb) getmtinfo(chname string) (uint64, uint64) {
+	k.RLock()
+	defer k.RUnlock()
 	if mt, ok := k.mats[chname]; ok {
 		return mt.head, mt.tail
 	}
@@ -89,6 +93,8 @@ func (k *Kvdb) getmtinfo(chname string) (uint64, uint64) {
 }
 
 func (k *Kvdb) setmtinfo(chname string, h, t uint64) {
+	k.Lock()
+	defer k.Unlock()
 	if mt, ok := k.mats[chname]; ok {
 		mt.head = h
 		mt.tail = t
@@ -96,6 +102,8 @@ func (k *Kvdb) setmtinfo(chname string, h, t uint64) {
 }
 
 func (k *Kvdb) addchan(key []byte) {
+	k.Lock()
+	defer k.Unlock()
 	if mt, ok := k.mats[keyName(key)]; ok {
 		mt.tail++
 		mt.head++
@@ -122,11 +130,13 @@ func (k *Kvdb) delchan(key []byte) {
 		if mt, ok := k.mats[keyName(key)]; ok {
 			id := keyToID(key)
 			if id <= mt.tail {
+				k.Lock()
 				mt.head--
 				//当key取空后重置游标
 				if mt.head == 0 {
 					mt.tail = 0
 				}
+				k.Unlock()
 			}
 		}
 	}
@@ -169,6 +179,7 @@ func (k *Kvdb) init() {
 	if k.enableChan {
 		iter := k.db.NewIterator(nil, k.iteratorOpts)
 		defer iter.Release()
+		k.Lock()
 		for iter.Next() {
 			mixName := keyName(iter.Key())
 			if _, ok := k.mats[mixName]; !ok {
@@ -187,5 +198,6 @@ func (k *Kvdb) init() {
 				v.tail = lastid
 			}
 		}
+		k.Unlock()
 	}
 }
