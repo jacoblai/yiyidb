@@ -139,13 +139,39 @@ func (q *ChanQueue) GetMetal(chname string) (uint64, uint64) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
-		return 0,0
+		return 0, 0
 	}
 	if mt, ok := q.mats[chname]; ok {
 		return mt.head, mt.tail
 	} else {
-		return 0,0
+		return 0, 0
 	}
+}
+
+func (q *ChanQueue) Clear(chname string) error {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return ErrDBClosed
+	}
+	if len(chname) > q.maxkv {
+		return errors.New("out of len")
+	}
+	batch := new(leveldb.Batch)
+	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+	iter.Release()
+	err := q.db.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+	if mt, ok := q.mats[chname]; ok {
+		mt.head = 0
+		mt.tail = 0
+	}
+	return nil
 }
 
 func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
