@@ -320,6 +320,20 @@ func (k *Kvdb) RegexpByKV(exp string) ([]KvItem, error) {
 	return result, nil
 }
 
+func (k *Kvdb) KeyStartDels(key []byte) error {
+	batch := new(leveldb.Batch)
+	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+	iter.Release()
+	err := k.db.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (k *Kvdb) KeyStartKeys(key []byte) []string {
 	var keys []string
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
