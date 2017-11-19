@@ -26,11 +26,6 @@ type Kvdb struct {
 	maxkv        int
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
-	Separator    []byte
-	WildcardOne  []byte
-	WildcardSome []byte
-	OneRegex     []byte
-	SomeRegex    []byte
 }
 
 type KvItem struct {
@@ -50,11 +45,6 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 		enableChan:   nChan,
 		mats:         make(map[string]*mat),
 		maxkv:        256 * MB,
-		Separator:    []byte("/"),
-		WildcardOne:  []byte("+"),
-		WildcardSome: []byte("#"),
-		OneRegex:     []byte("([^/#+]+/)"),
-		SomeRegex:    []byte("((?:[^/#+]+/)*)"),
 	}
 
 	bloom := Precision(float64(defaultKeyLen)*1.44, 0, true)
@@ -415,59 +405,6 @@ func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
 	}
 	iter.Release()
 	return result, nil
-}
-
-func (k *Kvdb) RegexpRevereByObject(key string, Ntype interface{}) ([]KvItem, error) {
-	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
-	for iter.Next() {
-		reg, err := k.GenRegexStr(iter.Key())
-		if err != nil {
-			continue
-		}
-		regx, err := regexp.Compile(string(reg))
-		if err != nil {
-			continue
-		}
-		if regx.Match([]byte(key)) {
-			t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-			err := msgpack.Unmarshal(iter.Value(), &t)
-			if err == nil {
-				item := KvItem{}
-				item.Key = make([]byte, len(iter.Key()))
-				copy(item.Key, iter.Key())
-				item.Object = t
-				result = append(result, item)
-			}
-		}
-	}
-	iter.Release()
-	return result, nil
-}
-
-func (k *Kvdb) GenRegexStr(topic []byte) ([]byte, error) {
-	//不能以 /符开头或结尾
-	if bytes.HasPrefix(topic, k.Separator) || bytes.HasSuffix(topic, k.Separator) {
-		return nil, errors.New("can't / prefix or suffix")
-	}
-	//不能以 + 或 #号开头
-	if bytes.HasPrefix(topic, k.WildcardOne) || bytes.HasPrefix(topic, k.WildcardSome) {
-		return nil, errors.New("can't + or # prefix")
-	}
-	//井号 (#) 只能用作主题字符串中的最后一个字符，并且是该级别的唯一字符。
-	somewds := bytes.Count(topic, k.WildcardSome)
-	if somewds > 1 {
-		return nil, errors.New("can't more then one #")
-	} else if somewds == 1 {
-		if !bytes.HasSuffix(topic, k.WildcardSome) {
-			return nil, errors.New("must suffix #")
-		}
-	}
-	one := bytes.Replace(topic, k.WildcardOne, k.OneRegex, -1)
-	if somewds == 1 {
-		one = append(one[:len(one)-2], k.SomeRegex...)
-	}
-	return one, nil
 }
 
 func (k *Kvdb) KeyRange(min, max []byte) ([]KvItem, error) {

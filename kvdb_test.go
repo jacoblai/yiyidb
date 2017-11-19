@@ -44,34 +44,6 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 	kv.Drop()
 }
 
-func TestKvdb_GetObject(t *testing.T) {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(err)
-	}
-	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	kv, err := OpenKvdb(dir, false, false, 10)
-	if err != nil {
-		panic(err)
-	}
-	defer kv.Close()
-
-	type object struct {
-		Value int
-	}
-
-	kv.PutObject([]byte("testkey1"), object{1}, 0)
-
-	o:= &object{}
-	err = kv.GetObject([]byte("testkey1"), o)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(o)
-
-	kv.Drop()
-}
-
 func TestKvdb_KeyStartByObject(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
