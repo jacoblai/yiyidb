@@ -201,7 +201,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]*QueueItem, error) {
 		return nil, errors.New("out of len")
 	}
 	result := make([]*QueueItem, 0)
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname)), q.iteratorOpts)
+	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
 	for iter.Next() {
 		item := &QueueItem{
 			ID:    keyToID(iter.Key()),

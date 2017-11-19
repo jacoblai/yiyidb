@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"math"
 	"sync"
+	"regexp"
 )
 
 type Kvdb struct {
@@ -282,6 +283,43 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
+func (k *Kvdb) RegexpKeys(exp string) ([]string, error) {
+	regx, err := regexp.Compile(exp)
+	if err != nil {
+		return nil, err
+	}
+	var keys []string
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		if regx.Match(iter.Key()) {
+			keys = append(keys, string(iter.Key()))
+		}
+	}
+	iter.Release()
+	return keys, nil
+}
+
+func (k *Kvdb) RegexpByKV(exp string) ([]KvItem, error) {
+	regx, err := regexp.Compile(exp)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]KvItem, 0)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		if regx.Match(iter.Key()) {
+			item := KvItem{}
+			item.Key = make([]byte, len(iter.Key()))
+			item.Value = make([]byte, len(iter.Value()))
+			copy(item.Key, iter.Key())
+			copy(item.Value, iter.Value())
+			result = append(result, item)
+		}
+	}
+	iter.Release()
+	return result, nil
+}
+
 func (k *Kvdb) KeyStartKeys(key []byte) []string {
 	var keys []string
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
@@ -325,6 +363,30 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error)
 			copy(item.Key, iter.Key())
 			item.Object = t
 			result = append(result, item)
+		}
+	}
+	iter.Release()
+	return result, nil
+}
+
+func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
+	regx, err := regexp.Compile(exp)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]KvItem, 0)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		if regx.Match(iter.Key()) {
+			t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+			err := msgpack.Unmarshal(iter.Value(), &t)
+			if err == nil {
+				item := KvItem{}
+				item.Key = make([]byte, len(iter.Key()))
+				copy(item.Key, iter.Key())
+				item.Object = t
+				result = append(result, item)
+			}
 		}
 	}
 	iter.Release()

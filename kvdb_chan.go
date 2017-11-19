@@ -6,6 +6,7 @@ import (
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"regexp"
 )
 
 func (k *Kvdb) PutChan(chname string, value []byte, ttl int) error {
@@ -15,7 +16,7 @@ func (k *Kvdb) PutChan(chname string, value []byte, ttl int) error {
 	k.Lock()
 	defer k.Unlock()
 	if mt, ok := k.mats[chname]; ok {
-		nk := idToKey(chname,mt.tail+1)
+		nk := idToKey(chname, mt.tail+1)
 		if err := k.db.Put(nk, value, nil); err != nil {
 			return err
 		}
@@ -140,6 +141,30 @@ func (k *Kvdb) delchan(key []byte) {
 			}
 		}
 	}
+}
+
+func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}) ([]KvItem, error) {
+	regx, err := regexp.Compile(exp)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]KvItem, 0)
+	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	for iter.Next() {
+		if regx.Match(iter.Key()) {
+			t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+			err := msgpack.Unmarshal(iter.Value(), &t)
+			if err == nil {
+				item := KvItem{}
+				item.Key = make([]byte, len(iter.Key()))
+				copy(item.Key, iter.Key())
+				item.Object = t
+				result = append(result, item)
+			}
+		}
+	}
+	iter.Release()
+	return result, nil
 }
 
 func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}) []KvItem {
