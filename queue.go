@@ -199,6 +199,8 @@ func (q *Queue) UpdateObject(id uint64, newValue interface{}) (*QueueItem, error
 }
 
 func (q *Queue) Length() uint64 {
+	q.RLock()
+	defer q.RUnlock()
 	return q.tail - q.head
 }
 
@@ -234,6 +236,8 @@ func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
 }
 
 func (q *Queue) init() error {
+	q.Lock()
+	defer q.Unlock()
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	if ok := iter.First(); ok {
