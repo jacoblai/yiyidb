@@ -236,11 +236,15 @@ func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
 func (q *Queue) init() error {
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
-	if iter.First() {
+	if ok := iter.First(); ok {
 		q.head = KeyToIDPure(iter.Key()) - 1
+	} else {
+		q.head = 0
 	}
-	if iter.Last() {
+	if ok := iter.Last(); ok {
 		q.tail = KeyToIDPure(iter.Key())
+	} else {
+		q.tail = 0
 	}
 	return iter.Error()
 }
