@@ -222,7 +222,7 @@ func (q *Queue) Drop() {
 }
 
 func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
-	if q.Length() == 0 {
+	if q.tail - q.head == 0 {
 		return nil, ErrEmpty
 	} else if id <= q.head || id > q.tail {
 		return nil, ErrOutOfBounds
