@@ -9,6 +9,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
 	"os"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 //FIFO
@@ -82,6 +83,14 @@ func (q *ChanQueue) init() error {
 		}
 	}
 	return iter.Error()
+}
+
+func (q *ChanQueue) EnqueueObject(chname string, value interface{}) (*QueueItem, error) {
+	msg, err := msgpack.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return q.Enqueue(chname, msg)
 }
 
 func (q *ChanQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
