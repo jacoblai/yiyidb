@@ -200,7 +200,7 @@ func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 	}
 }
 
-func (q *ChanQueue) PeekStart(chname string) ([]*QueueItem, error) {
+func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
@@ -209,14 +209,15 @@ func (q *ChanQueue) PeekStart(chname string) ([]*QueueItem, error) {
 	if len(chname) > q.maxkv {
 		return nil, errors.New("out of len")
 	}
-	result := make([]*QueueItem, 0)
+	result := make([]QueueItem, 0)
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
 	for iter.Next() {
-		item := &QueueItem{
-			ID:    keyToID(iter.Key()),
-			Key:   iter.Key(),
-			Value: iter.Value(),
-		}
+		item := QueueItem{}
+		item.ID=keyToID(iter.Key())
+		item.Key = make([]byte, len(iter.Key()))
+		item.Value = make([]byte, len(iter.Value()))
+		copy(item.Key, iter.Key())
+		copy(item.Value, iter.Value())
 		result = append(result, item)
 	}
 	iter.Release()
