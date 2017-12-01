@@ -166,6 +166,12 @@ func (q *ChanQueue) Clear(chname string) error {
 	if len(chname) > q.maxkv {
 		return errors.New("out of len")
 	}
+	if mt, ok := q.mats[chname]; ok {
+		mt.head = 0
+		mt.tail = 0
+	} else {
+		return errors.New("ch not ext")
+	}
 	batch := new(leveldb.Batch)
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
 	for iter.Next() {
@@ -175,10 +181,6 @@ func (q *ChanQueue) Clear(chname string) error {
 	err := q.db.Write(batch, nil)
 	if err != nil {
 		return err
-	}
-	if mt, ok := q.mats[chname]; ok {
-		mt.head = 0
-		mt.tail = 0
 	}
 	return nil
 }
@@ -201,7 +203,8 @@ func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 }
 
 func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
-	q.RLock()
+	q.Lock()
+	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
@@ -214,6 +217,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	} else {
 		return nil, errors.New("ch not ext")
 	}
+	batch := new(leveldb.Batch)
 	result := make([]QueueItem, 0)
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
 	for iter.Next() {
@@ -224,10 +228,13 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 		copy(item.Key, iter.Key())
 		copy(item.Value, iter.Value())
 		result = append(result, item)
+		batch.Delete(iter.Key())
 	}
 	iter.Release()
-	q.RUnlock()
-	q.Clear(chname)
+	err := q.db.Write(batch, nil)
+	if err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
