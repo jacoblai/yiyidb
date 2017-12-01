@@ -202,12 +202,17 @@ func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 
 func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
 	if len(chname) > q.maxkv {
 		return nil, errors.New("out of len")
+	}
+	if mt, ok := q.mats[chname]; ok {
+		mt.head = 0
+		mt.tail = 0
+	} else {
+		return nil, errors.New("ch not ext")
 	}
 	result := make([]QueueItem, 0)
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
@@ -221,6 +226,8 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 		result = append(result, item)
 	}
 	iter.Release()
+	q.RUnlock()
+	q.Clear(chname)
 	return result, nil
 }
 
