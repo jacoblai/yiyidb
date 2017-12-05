@@ -65,3 +65,13 @@ func keyToID(key []byte) uint64 {
 	}
 	return 0
 }
+
+func IdToKeyPureUint16(id uint16) []byte {
+	key := make([]byte, 2)
+	binary.BigEndian.PutUint16(key, id)
+	return key
+}
+
+func KeyToIDPureUint16(key []byte) uint16 {
+	return binary.BigEndian.Uint16(key)
+}
