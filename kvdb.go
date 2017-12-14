@@ -13,6 +13,7 @@ import (
 	"math"
 	"sync"
 	"regexp"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 type Kvdb struct {
@@ -342,6 +343,21 @@ func (k *Kvdb) KeyStartKeys(key []byte) []string {
 	}
 	iter.Release()
 	return keys
+}
+
+func (k *Kvdb) Iter() iterator.Iterator {
+	return k.db.NewIterator(nil, k.iteratorOpts)
+}
+
+func (k *Kvdb) IterStartWith(key []byte) (iterator.Iterator, error) {
+	if len(key) > k.maxkv {
+		return nil, errors.New("out of len")
+	}
+	return k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts), nil
+}
+
+func (k *Kvdb) IterRelease(iter iterator.Iterator) {
+	iter.Release()
 }
 
 func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
