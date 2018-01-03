@@ -284,6 +284,24 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
 	return result
 }
 
+func (k *Kvdb) AllByJson(Ntype interface{}) []KvItem {
+	result := make([]KvItem, 0)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+		err := ffjson.Unmarshal(iter.Value(), &t)
+		if err == nil {
+			item := KvItem{}
+			item.Key = make([]byte, len(iter.Key()))
+			copy(item.Key, iter.Key())
+			item.Object = t
+			result = append(result, item)
+		}
+	}
+	iter.Release()
+	return result
+}
+
 func (k *Kvdb) AllByKV() []KvItem {
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
