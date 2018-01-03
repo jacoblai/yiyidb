@@ -14,6 +14,7 @@ import (
 	"sync"
 	"regexp"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/pquerna/ffjson/ffjson"
 )
 
 type Kvdb struct {
@@ -171,6 +172,18 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	return nil
 }
 
+func (k *Kvdb) GetJson(key []byte, value interface{}) error {
+	data, err := k.Get(key)
+	if err != nil {
+		return err
+	}
+	err = ffjson.Unmarshal(data, &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if len(key) > k.maxkv || len(value) > k.maxkv {
 		return errors.New("out of len")
@@ -191,6 +204,18 @@ func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
 		t = t.Elem()
 	}
 	msg, err := msgpack.Marshal(t.Interface())
+	if err != nil {
+		return err
+	}
+	return k.Put(key, msg, ttl)
+}
+
+func (k *Kvdb) PutJson(key []byte, value interface{}, ttl int) error {
+	t := reflect.ValueOf(value)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	msg, err := ffjson.Marshal(t.Interface())
 	if err != nil {
 		return err
 	}
