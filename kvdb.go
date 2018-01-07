@@ -13,6 +13,8 @@ import (
 	"math"
 	"sync"
 	"regexp"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/pquerna/ffjson/ffjson"
 )
 
 type Kvdb struct {
@@ -170,6 +172,18 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	return nil
 }
 
+func (k *Kvdb) GetJson(key []byte, value interface{}) error {
+	data, err := k.Get(key)
+	if err != nil {
+		return err
+	}
+	err = ffjson.Unmarshal(data, &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if len(key) > k.maxkv || len(value) > k.maxkv {
 		return errors.New("out of len")
@@ -190,6 +204,18 @@ func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
 		t = t.Elem()
 	}
 	msg, err := msgpack.Marshal(t.Interface())
+	if err != nil {
+		return err
+	}
+	return k.Put(key, msg, ttl)
+}
+
+func (k *Kvdb) PutJson(key []byte, value interface{}, ttl int) error {
+	t := reflect.ValueOf(value)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	msg, err := ffjson.Marshal(t.Interface())
 	if err != nil {
 		return err
 	}
@@ -246,6 +272,24 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
 	for iter.Next() {
 		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
 		err := msgpack.Unmarshal(iter.Value(), &t)
+		if err == nil {
+			item := KvItem{}
+			item.Key = make([]byte, len(iter.Key()))
+			copy(item.Key, iter.Key())
+			item.Object = t
+			result = append(result, item)
+		}
+	}
+	iter.Release()
+	return result
+}
+
+func (k *Kvdb) AllByJson(Ntype interface{}) []KvItem {
+	result := make([]KvItem, 0)
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
+		err := ffjson.Unmarshal(iter.Value(), &t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))
@@ -342,6 +386,21 @@ func (k *Kvdb) KeyStartKeys(key []byte) []string {
 	}
 	iter.Release()
 	return keys
+}
+
+func (k *Kvdb) Iter() iterator.Iterator {
+	return k.db.NewIterator(nil, k.iteratorOpts)
+}
+
+func (k *Kvdb) IterStartWith(key []byte) (iterator.Iterator, error) {
+	if len(key) > k.maxkv {
+		return nil, errors.New("out of len")
+	}
+	return k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts), nil
+}
+
+func (k *Kvdb) IterRelease(iter iterator.Iterator) {
+	iter.Release()
 }
 
 func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {

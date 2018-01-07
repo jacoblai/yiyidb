@@ -10,6 +10,35 @@ import (
 	"io/ioutil"
 )
 
+func TestKvdb_IterStartWith(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+	//参数说明
+	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
+	kv, err := OpenKvdb(dir, false, false, 10)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	kv.Put([]byte("testkey1"), []byte("testkey1"), 0)
+	kv.Put([]byte("testkey22"), []byte("testkey22"), 0)
+	kv.Put([]byte("testke"), []byte("testke"), 0)
+
+	iter, err := kv.IterStartWith([]byte("testkey"))
+	if err != nil {
+		panic(err)
+	}
+	for iter.Next() {
+		fmt.Println(string(iter.Key()), string(iter.Value()))
+	}
+
+	kv.Drop()
+}
+
 func TestKvdb_KeyRangeByObject(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
