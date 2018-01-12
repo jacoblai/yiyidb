@@ -10,6 +10,58 @@ import (
 	"io/ioutil"
 )
 
+func TestKvdb_AllByKVMix(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+	//参数说明
+	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
+	kv, err := OpenKvdb(dir, false, false, 10)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	kv.PutMix( "jac", "testkey1", []byte("testkey1"), 0)
+	kv.PutMix( "jac", "testkey22", []byte("testkey22"), 0)
+	kv.PutMix( "jac", "testke", []byte("testk3563453e"), 0)
+
+	one, err := kv.GetMix("jac", "testke")
+	fmt.Println("one:", string(one))
+
+	//all := kv.AllByKVMix("jac")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//for _, v := range all {
+	//	fmt.Println(string(v.Key), string(v.Value))
+	//}
+
+	type object struct {
+		Value int
+	}
+
+	kv.PutObjectMix("jjj","test",object{111}, 0)
+    var o object
+    err = kv.GetObjectMix("jjj","test", &o)
+    if err !=nil{
+    	fmt.Println(err)
+	}
+	fmt.Println(o.Value)
+
+	all := kv.AllByObjectMix("jjj", o)
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range all {
+		fmt.Println(string(v.Key), v.Object)
+	}
+
+	kv.Drop()
+}
+
 func TestKvdb_IterStartWith(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {

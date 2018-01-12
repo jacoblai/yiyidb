@@ -50,6 +50,15 @@ func idToKey(chname string, id uint64) []byte {
 	return append([]byte(chname+"-"), kid...)
 }
 
+func idToKeyMix(chname, key string) []byte {
+	return []byte(chname + "-" + key)
+}
+
+func keyToIdMix(mixkey []byte) (string, string) {
+	bts := bytes.Split(mixkey,[]byte("-"))
+	return string(bts[0]), string(bts[1])
+}
+
 func keyName(key []byte) string {
 	k := bytes.Split(key, []byte("-"))
 	if len(k) == 2 {
