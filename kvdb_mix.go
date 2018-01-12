@@ -107,6 +107,22 @@ func (k *Kvdb) DelMix(chname string) error {
 	return k.BatPutOrDel(&items)
 }
 
+func (k *Kvdb) DelColMix(chname, key string) error {
+	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
+		return errors.New("ch or key has '-' ")
+	}
+	nk := []byte(idToKeyMix(chname, key))
+	err := k.db.Delete(nk, nil)
+	if err != nil {
+		return err
+	}
+	if k.enableTtl {
+		k.ttldb.DelTTL(nk)
+	}
+	return nil
+
+}
+
 
 func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
 	result := make([]KvItem, 0)

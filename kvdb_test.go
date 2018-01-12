@@ -31,13 +31,25 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	one, err := kv.GetMix("jac", "testke")
 	fmt.Println("one:", string(one))
 
-	//all := kv.AllByKVMix("jac")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//for _, v := range all {
-	//	fmt.Println(string(v.Key), string(v.Value))
-	//}
+	kv.DelColMix("jac", "testkey1")
+
+	all := kv.AllByKVMix("jac")
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range all {
+		fmt.Println(string(v.Key), string(v.Value))
+	}
+
+	kv.DelMix("jac")
+
+	all = kv.AllByKVMix("jac")
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range all {
+		fmt.Println(string(v.Key), string(v.Value))
+	}
 
 	type object struct {
 		Value int
@@ -51,13 +63,15 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	}
 	fmt.Println(o.Value)
 
-	all := kv.AllByObjectMix("jjj", o)
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range all {
-		fmt.Println(string(v.Key), v.Object)
-	}
+	//all := kv.AllByObjectMix("jjj", o)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//for _, v := range all {
+	//	fmt.Println(string(v.Key), v.Object)
+	//}
+
+
 
 	kv.Drop()
 }
