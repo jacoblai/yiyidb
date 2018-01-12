@@ -1,9 +1,6 @@
-# YIYIDB - A fast NoSQL database for storing big list of data
+# YIYIDB 高性能的no-sql数据库
 
 [![Author](https://img.shields.io/badge/author-@jacoblai-blue.svg?style=flat)](http://www.icoolpy.com/) [![Platform](https://img.shields.io/badge/platform-Linux,%20OpenWrt,%20Android,%20Mac,%20Windows-green.svg?style=flat)](https://github.com/jacoblai/dhdb) [![NoSQL](https://img.shields.io/badge/db-NoSQL-pink.svg?tyle=flat)](https://github.com/jacoblai/dhdb)
-
-
-YIYIDB 高性能的no-sql数据库
 
 ## 功能支持
 
@@ -14,7 +11,10 @@ YIYIDB 高性能的no-sql数据库
 * 支持 TTL 超时自动删除及通知事件
 * 支持嵌入式设备OpenWrt等系统 (ARM/MIPS)
 
-## 更新示例代码在项目中的 *_test.go 文件中
+## 使用说明
+
+* 参阅项目wiki
+* 更多示例代码请参阅项目中的 *_test.go 文件
 
 ## 性能 
 ## 插入队列压力测试
