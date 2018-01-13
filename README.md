@@ -13,7 +13,7 @@
 
 ## 使用说明
 
-* 中文手册参阅项目WIKI
+* 中文手册参阅[项目WIKI!](https://github.com/jacoblai/yiyidb/wiki)
 * 更多示例代码参阅项目 *_test.go 文件
 
 ## 快速上手
