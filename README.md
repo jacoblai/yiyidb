@@ -32,7 +32,7 @@ if err != nil {
 //参数2 是否开启同库数据分组(chan库开启标识) 
 //参数3 是否开启ttl自动删除记录,当开启ttl后put操作的ttl才会生效
 //参数4 数据碰测优化，输入可能出现key的最大长度
-kv, err := yiyidb.OpenKvdb(dir, false, false, 10)
+kv, err := yiyidb.OpenKvdb(dir+"/yiyidb", false, false, 10)
 if err != nil {
 	panic(err)
 }
