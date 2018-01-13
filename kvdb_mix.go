@@ -9,6 +9,14 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
+func (k *Kvdb) ExistsMix(chname, key string) bool {
+	if len(key) > k.maxkv {
+		return false
+	}
+	ok, _ := k.db.Has(idToKeyMix(chname,key), k.iteratorOpts)
+	return ok
+}
+
 func (k *Kvdb) GetMix(chname, key string) ([]byte, error) {
 	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
 		return nil, errors.New("ch or key has '-' ")
