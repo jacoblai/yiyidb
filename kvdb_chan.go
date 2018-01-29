@@ -103,8 +103,6 @@ func (k *Kvdb) setmtinfo(chname string, h, t uint64) {
 }
 
 func (k *Kvdb) addchan(key []byte) {
-	k.Lock()
-	defer k.Unlock()
 	if mt, ok := k.mats[keyName(key)]; ok {
 		mt.tail++
 		mt.head++
