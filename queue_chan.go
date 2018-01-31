@@ -157,6 +157,22 @@ func (q *ChanQueue) GetMetal(chname string) (uint64, uint64) {
 	}
 }
 
+func (q *ChanQueue) Length(chname string) (uint64, error) {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return 0, ErrDBClosed
+	}
+	if len(chname) > q.maxkv {
+		return 0, errors.New("out of len")
+	}
+	if mt, ok := q.mats[chname]; ok {
+		return mt.tail - mt.head, nil
+	} else {
+		return 0, errors.New("ch not ext")
+	}
+}
+
 func (q *ChanQueue) Clear(chname string) error {
 	q.RLock()
 	defer q.RUnlock()
@@ -222,7 +238,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
 	for iter.Next() {
 		item := QueueItem{}
-		item.ID=keyToID(iter.Key())
+		item.ID = keyToID(iter.Key())
 		item.Key = make([]byte, len(iter.Key()))
 		item.Value = make([]byte, len(iter.Value()))
 		copy(item.Key, iter.Key())
