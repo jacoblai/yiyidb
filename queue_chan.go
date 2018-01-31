@@ -157,6 +157,19 @@ func (q *ChanQueue) GetMetal(chname string) (uint64, uint64) {
 	}
 }
 
+func (q *ChanQueue) GetChans() ([]string, error) {
+	q.RLock()
+	defer q.RUnlock()
+	if !q.isOpen {
+		return nil, ErrDBClosed
+	}
+	chans := make([]string, 0)
+	for k := range q.mats {
+		chans = append(chans, k)
+	}
+	return chans, nil
+}
+
 func (q *ChanQueue) Length(chname string) (uint64, error) {
 	q.RLock()
 	defer q.RUnlock()
