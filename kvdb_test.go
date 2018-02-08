@@ -347,7 +347,7 @@ func TestOpenKvdb(t *testing.T) {
 		panic(err)
 	}
 	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	kv, err := OpenKvdb(dir, true, false, 10)
+	kv, err := OpenKvdb(dir, true, true, 10)
 	if err != nil {
 		panic(err)
 	}
