@@ -113,7 +113,7 @@ func TestQueueDequeue(t *testing.T) {
 		}
 	}
 
-	if q.Length() != 0{
+	if q.Length() != 0 {
 		t.Errorf("Queue reset index err, got %d", q.Length())
 	}
 
@@ -516,6 +516,10 @@ func BenchmarkQueueEnqueue(b *testing.B) {
 	}
 }
 
+type object struct{
+	aaa int
+}
+
 func BenchmarkQueueDequeue(b *testing.B) {
 	// Open test database
 	file := fmt.Sprintf("test_db_%d", time.Now().UnixNano())
@@ -525,18 +529,23 @@ func BenchmarkQueueDequeue(b *testing.B) {
 	}
 	defer q.Drop()
 
-	// Fill with dummy data
-	for n := 0; n < b.N; n++ {
-		if _, err = q.Enqueue([]byte("value")); err != nil {
-			b.Error(err)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			if _, err = q.EnqueueObject(object{2}); err != nil {
+				b.Error(err)
+			}
 		}
-	}
+	})
 
-	// Start benchmark
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for n := 0; n < b.N; n++ {
-		_, _ = q.Dequeue()
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			if item, err := q.Dequeue(); err != nil {
+				b.Error(err)
+			}else{
+				var obj object
+				item.ToObject(&obj)
+				b.Log(obj.aaa)
+			}
+		}
+	})
 }

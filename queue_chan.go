@@ -287,12 +287,16 @@ func (q *ChanQueue) Drop() {
 	os.RemoveAll(q.DataDir)
 }
 
-func (q *ChanQueue) Close() {
+func (q *ChanQueue) Close() error {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
-		return
+		return ErrDBClosed
 	}
-	q.db.Close()
+	err := q.db.Close()
+	if err != nil{
+		return err
+	}
 	q.isOpen = false
+	return nil
 }
