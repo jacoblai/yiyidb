@@ -15,6 +15,7 @@ type ttlRunner struct {
 	iteratorOpts  *opt.ReadOptions
 	quit          chan struct{}
 	HandleExpirse func(key, value []byte)
+	IsWorking     bool
 }
 
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*ttlRunner, error) {
@@ -23,6 +24,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		quit:         make(chan struct{}, 1),
+		IsWorking:    false,
 	}
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
@@ -92,32 +94,34 @@ func (t *ttlRunner) Run() {
 		for {
 			select {
 			case <-ticker.C:
-				batch := new(leveldb.Batch)
-				iter := t.db.NewIterator(nil, t.iteratorOpts)
-				for iter.Next() {
-					var it TtlItem
-					if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-						t.db.Delete(iter.Key(), nil)
-					} else {
-						if it.expired() {
-							batch.Delete(it.Dkey)
-							val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-							if err == nil && t.HandleExpirse != nil {
-								t.HandleExpirse(iter.Key(), val)
+				if !t.IsWorking {
+					t.IsWorking = true
+					batch := new(leveldb.Batch)
+					iter := t.db.NewIterator(nil, t.iteratorOpts)
+					for iter.Next() {
+						var it TtlItem
+						if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
+							t.db.Delete(iter.Key(), nil)
+						} else {
+							if it.expired() {
+								batch.Delete(it.Dkey)
+								val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
+								if err == nil && t.HandleExpirse != nil {
+									t.HandleExpirse(iter.Key(), val)
+								}
 							}
 						}
 					}
-				}
-				iter.Release()
-				if batch.Len() > 0 {
-					go func() {
+					iter.Release()
+					if batch.Len() > 0 {
 						if err := t.masterdb.Write(batch, nil); err != nil {
 							fmt.Println(err)
 						}
 						if err := t.db.Write(batch, nil); err != nil {
 							fmt.Println(err)
 						}
-					}()
+					}
+					t.IsWorking = false
 				}
 			case <-t.quit:
 				ticker.Stop()

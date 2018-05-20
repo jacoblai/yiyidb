@@ -19,7 +19,7 @@ func (k *Kvdb) ExistsMix(chname, key string) bool {
 
 func (k *Kvdb) GetMix(chname, key string) ([]byte, error) {
 	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
-		return nil, errors.New("ch or key has '-' ")
+		return nil, errors.New("ch or key has '-'")
 	}
 	data, err := k.db.Get(idToKeyMix(chname,key), nil)
 	if err != nil {
@@ -33,6 +33,10 @@ func (k *Kvdb) GetObjectMix(chname, key string, value interface{}) error {
 	if err != nil {
 		return err
 	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
 	err = msgpack.Unmarshal(data, &value)
 	if err != nil {
 		return err
@@ -45,7 +49,7 @@ func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int) error {
 		return errors.New("out of len")
 	}
 	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
-		return errors.New("ch or key has '-' ")
+		return errors.New("ch or key has '-'")
 	}
 	nk := idToKeyMix(chname, key)
 	if err := k.db.Put(nk, value, nil); err != nil {
@@ -133,11 +137,15 @@ func (k *Kvdb) DelColMix(chname, key string) error {
 
 
 func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
 	for iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := msgpack.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := msgpack.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))

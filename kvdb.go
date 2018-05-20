@@ -165,6 +165,10 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	if err != nil {
 		return err
 	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
 	err = msgpack.Unmarshal(data, &value)
 	if err != nil {
 		return err
@@ -176,6 +180,10 @@ func (k *Kvdb) GetJson(key []byte, value interface{}) error {
 	data, err := k.Get(key)
 	if err != nil {
 		return err
+	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
 	}
 	err = ffjson.Unmarshal(data, &value)
 	if err != nil {
@@ -267,11 +275,15 @@ func (k *Kvdb) Del(key []byte) error {
 }
 
 func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := msgpack.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := msgpack.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))
@@ -285,11 +297,15 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
 }
 
 func (k *Kvdb) AllByJson(Ntype interface{}) []KvItem {
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := ffjson.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := ffjson.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))
@@ -425,11 +441,15 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error)
 	if len(key) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
 	for iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := msgpack.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := msgpack.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))
@@ -447,12 +467,16 @@ func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
-			t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-			err := msgpack.Unmarshal(iter.Value(), &t)
+			t := reflect.New(nt).Interface()
+			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
 				item := KvItem{}
 				item.Key = make([]byte, len(iter.Key()))
@@ -488,11 +512,15 @@ func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]KvItem, e
 	if len(min) > k.maxkv || len(max) > k.maxkv {
 		return nil, errors.New("out of len")
 	}
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := msgpack.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := msgpack.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))

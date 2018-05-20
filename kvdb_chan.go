@@ -146,12 +146,16 @@ func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}) ([]KvIt
 	if err != nil {
 		return nil, err
 	}
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
-			t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-			err := msgpack.Unmarshal(iter.Value(), &t)
+			t := reflect.New(nt).Interface()
+			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
 				item := KvItem{}
 				item.Key = make([]byte, len(iter.Key()))
@@ -166,11 +170,15 @@ func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}) ([]KvIt
 }
 
 func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}) []KvItem {
+	nt := reflect.TypeOf(Ntype)
+	if nt.Kind() == reflect.Ptr {
+		nt = nt.Elem()
+	}
 	result := make([]KvItem, 0)
 	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
 	for iter.Next() {
-		t := reflect.New(reflect.TypeOf(Ntype)).Interface()
-		err := msgpack.Unmarshal(iter.Value(), &t)
+		t := reflect.New(nt).Interface()
+		err := msgpack.Unmarshal(iter.Value(), t)
 		if err == nil {
 			item := KvItem{}
 			item.Key = make([]byte, len(iter.Key()))

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"os"
 	"time"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestKvdb_AllByKVChan(t *testing.T) {
@@ -29,9 +30,7 @@ func TestKvdb_AllByKVChan(t *testing.T) {
 	kv.Del(idToKey("jac", 1))
 
 	all := kv.AllByKVChan("jac")
-	for _, v := range all {
-		fmt.Println(string(keyToID(v.Key)), string(v.Value))
-	}
+	assert.Equal(t, all[0].Value, []byte("dfdfseeee ee value2"))
 
 	kv.Drop()
 }

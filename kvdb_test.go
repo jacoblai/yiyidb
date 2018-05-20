@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 	"strconv"
-	"io/ioutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestKvdb_AllByKVMix(t *testing.T) {
@@ -29,49 +29,29 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	kv.PutMix( "jac", "testke", []byte("testk3563453e"), 0)
 
 	one, err := kv.GetMix("jac", "testke")
-	fmt.Println("one:", string(one))
+	assert.NoError(t, err)
+	assert.Equal(t, one, []byte("testk3563453e"))
 
 	kv.DelColMix("jac", "testkey1")
-
 	all := kv.AllByKVMix("jac")
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range all {
-		fmt.Println(string(v.Key), string(v.Value))
-	}
+	assert.Equal(t, all[0].Value,[]byte("testk3563453e"))
 
 	kv.DelMix("jac")
-
 	all = kv.AllByKVMix("jac")
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range all {
-		fmt.Println(string(v.Key), string(v.Value))
-	}
+	assert.Equal(t, len(all), 0)
 
 	type object struct {
 		Value int
 	}
 
-	kv.PutObjectMix("jjj","test",object{111}, 0)
+	kv.PutObjectMix("jjj","test",&object{111}, 0)
     var o object
     err = kv.GetObjectMix("jjj","test", &o)
-    if err !=nil{
-    	fmt.Println(err)
-	}
-	fmt.Println(o.Value)
+    assert.NoError(t, err)
+	assert.Equal(t, o.Value, 111)
 
-	//all := kv.AllByObjectMix("jjj", o)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//for _, v := range all {
-	//	fmt.Println(string(v.Key), v.Object)
-	//}
-
-
+	all = kv.AllByObjectMix("jjj", o)
+	assert.Equal(t, all[0].Object, &object{111})
 
 	kv.Drop()
 }
@@ -95,12 +75,9 @@ func TestKvdb_IterStartWith(t *testing.T) {
 	kv.Put([]byte("testke"), []byte("testke"), 0)
 
 	iter, err := kv.IterStartWith([]byte("testkey"))
-	if err != nil {
-		panic(err)
-	}
-	for iter.Next() {
-		fmt.Println(string(iter.Key()), string(iter.Value()))
-	}
+	assert.NoError(t, err)
+	iter.Next()
+	assert.Equal(t, iter.Key(), []byte("testkey1"))
 
 	kv.Drop()
 }
@@ -122,19 +99,14 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 	type object struct {
 		Value int
 	}
-
 	kv.PutObject([]byte("testkey1"), object{1}, 0)
 	kv.PutObject([]byte("testkey22"), object{2}, 0)
 	kv.PutObject([]byte("testke"), object{3}, 0)
 
 	var o object
 	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o)
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range all {
-		fmt.Println(string(v.Key), v.Object)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, all[0].Object, &object{1})
 
 	kv.Drop()
 }
@@ -161,12 +133,8 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 
 	var o object
 	all, err := kv.KeyStartByObject([]byte("testkey"), o)
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range all {
-		fmt.Println(string(v.Key), v.Object)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, all[0].Object, &object{1})
 
 	kv.Drop()
 }
@@ -193,12 +161,8 @@ func TestKvdb_KeysByRegexp(t *testing.T) {
 		kv.Put([]byte(v), []byte(v), 0)
 	}
 	all, err := kv.RegexpKeys(`foo/((?:[^/#+]+/)*)`)
-	if err != nil {
-		t.Error(err)
-	}
-	for _, v := range all {
-		fmt.Println(v)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, all[0], "foo/#")
 	kv.Drop()
 }
 
@@ -221,9 +185,7 @@ func TestKvdb_AllByKV(t *testing.T) {
 	kv.Put([]byte("testkey5"), []byte("test value2"), 0)
 
 	all := kv.AllByKV()
-	for _, v := range all {
-		fmt.Println(string(v.Key), string(v.Value))
-	}
+	assert.Equal(t, all[0].Value, []byte("test value1"))
 
 	kv.Drop()
 }
@@ -249,9 +211,7 @@ func TestKvdb_AllByObject(t *testing.T) {
 
 	var o object
 	all := kv.AllByObject(o)
-	for _, v := range all {
-		fmt.Println(string(v.Key), v.Object)
-	}
+	assert.Equal(t, all[0].Object, &object{1})
 
 	kv.Drop()
 }
@@ -263,38 +223,36 @@ func TestKvdb_Drop(t *testing.T) {
 	}
 	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
 	kv, err := OpenKvdb(dir, false, false, 10)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 	defer kv.Close()
 
 	kv.Drop()
 }
 
-func TestKvdb_Put(t *testing.T) {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(err)
-	}
-	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	kv, err := OpenKvdb(dir, false, false, 10)
-	if err != nil {
-		panic(err)
-	}
-	defer kv.Close()
-
-	start := time.Now()
-	//for i := 0; i < 1000000; i++ {
-	ks, err := kv.KeyRange([]byte("key0"), []byte("key1000000"))
-	if err != nil {
-		panic(err)
-	}
-	//}
-	exp := time.Now().Sub(start)
-	fmt.Println(exp, ks)
-
-	kv.Drop()
-}
+//func TestKvdb_Put(t *testing.T) {
+//	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+//	if err != nil {
+//		panic(err)
+//	}
+//	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+//	kv, err := OpenKvdb(dir, false, false, 10)
+//	if err != nil {
+//		panic(err)
+//	}
+//	defer kv.Close()
+//
+//	start := time.Now()
+//	//for i := 0; i < 1000000; i++ {
+//	ks, err := kv.KeyRange([]byte("key0"), []byte("key1000000"))
+//	if err != nil {
+//		panic(err)
+//	}
+//	//}
+//	exp := time.Now().Sub(start)
+//	fmt.Println(exp, ks)
+//
+//	kv.Drop()
+//}
 
 func TestKvdb_BatPutOrDel(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -320,10 +278,10 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		items = append(items, item)
 	}
 	kv.BatPutOrDel(&items)
+	assert.NoError(t, err)
 	last, err := kv.Get([]byte("test9999"))
-	if string(last) != "bat values" {
-		t.Error("record not put finish")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, last, []byte("bat values"))
 
 	//remove 50000 items from database
 	for i := 1; i < 50000; i++ {
@@ -336,12 +294,12 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 	}
 	kv.BatPutOrDel(&items)
 	_, err = kv.Get([]byte("test9999"))
-	if err == nil {
-		t.Error("record not del finish")
-	}
+	assert.Equal(t, err.Error(), "leveldb: not found")
+
+	kv.Drop()
 }
 
-func TestOpenKvdb(t *testing.T) {
+func TestSetTtlKvdb(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		panic(err)
@@ -359,16 +317,12 @@ func TestOpenKvdb(t *testing.T) {
 	kv.SetTTL([]byte("hello2"), 8)
 
 	f, err := kv.GetTTL([]byte("hello2"))
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println("exp time hello2", f)
+	assert.NoError(t, err)
+	assert.Equal(t, int(f)+1, 8)
 
-	if v, err := kv.Get([]byte("hello1")); err == nil {
-		if string(v) != "hello value" {
-			t.Error("write error")
-		}
-	}
+	v, err := kv.Get([]byte("hello1"))
+	assert.NoError(t, err)
+	assert.Equal(t, v, []byte("hello value"))
 
 	time.Sleep(5 * time.Second)
 
@@ -376,79 +330,81 @@ func TestOpenKvdb(t *testing.T) {
 	if err == nil {
 		t.Error("ttl delete error")
 	}
+
+	kv.Drop()
 }
 
-func TestTtlRunner_Run(t *testing.T) {
-	//测试kv数据库及超时TTL服务
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(err)
-	}
-	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-	kv, err := OpenKvdb(dir, true, false, 10)
-	if err != nil {
-		panic(err)
-	}
-	defer kv.Close()
-	kv.OnExpirse = func(key, value []byte) {
-		fmt.Println("exp:", string(key), string(value))
-	}
+//func TestTtlRunner_Run(t *testing.T) {
+//	//测试kv数据库及超时TTL服务
+//	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+//	if err != nil {
+//		panic(err)
+//	}
+//	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+//	kv, err := OpenKvdb(dir, true, true, 10)
+//	if err != nil {
+//		panic(err)
+//	}
+//	defer kv.Close()
+//	kv.OnExpirse = func(key, value []byte) {
+//		fmt.Println("exp:", string(key), string(value))
+//	}
+//
+//	for i := 0; i <= 10; i++ {
+//		kv.Put([]byte("hello"+strconv.Itoa(i)), []byte("hello value"+strconv.Itoa(i)), i+1)
+//	}
+//
+//	for i := 1; i < 10; i++ {
+//		fmt.Println("sleep")
+//		time.Sleep(3 * time.Second)
+//
+//		all := kv.AllKeys()
+//		for _, k := range all {
+//			fmt.Println(k)
+//		}
+//	}
+//
+//	searchkeys, _ := kv.KeyStart([]byte("hello1"))
+//	for _, k := range searchkeys {
+//		fmt.Println(k)
+//	}
+//
+//	randkeys, _ := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
+//	for _, k := range randkeys {
+//		fmt.Println(k)
+//	}
+//}
 
-	for i := 0; i <= 10; i++ {
-		kv.Put([]byte("hello"+strconv.Itoa(i)), []byte("hello value"+strconv.Itoa(i)), i+1)
-	}
-
-	for i := 1; i < 10; i++ {
-		fmt.Println("sleep")
-		time.Sleep(3 * time.Second)
-
-		all := kv.AllKeys()
-		for _, k := range all {
-			fmt.Println(k)
-		}
-	}
-
-	searchkeys, _ := kv.KeyStart([]byte("hello1"))
-	for _, k := range searchkeys {
-		fmt.Println(k)
-	}
-
-	randkeys, _ := kv.KeyRange([]byte("2017-06-01T01:01:01"), []byte("2017-07-01T01:01:01"))
-	for _, k := range randkeys {
-		fmt.Println(k)
-	}
-}
-
-func TestMaxKeyAndValue(t *testing.T) {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(err)
-	}
-	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-
-	kv, err := OpenKvdb(dir, false, false, 10)
-	if err != nil {
-		panic(err)
-	}
-
-	defer kv.Drop()
-
-	bts, err := ioutil.ReadFile("D:\\GoglandProjects\\yiyidb\\yiyidb.zip")
-	if err != nil {
-		panic(err)
-	}
-
-	err = kv.Put(bts, bts, 0)
-	if err != nil {
-		panic(err)
-	}
-	btss, err := kv.Get(bts)
-	if err != nil {
-		panic(err)
-	}
-	err = ioutil.WriteFile("D:\\GoglandProjects\\yiyidb\\yiyidb1.zip", btss, 777)
-	if err != nil {
-		panic(err)
-	}
-	//测试结果显示 key和value不超过512m为保证可用性，但性能下降，建议把key尽可能精练
-}
+//func TestMaxKeyAndValue(t *testing.T) {
+//	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+//	if err != nil {
+//		panic(err)
+//	}
+//	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+//
+//	kv, err := OpenKvdb(dir, false, false, 10)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	defer kv.Drop()
+//
+//	bts, err := ioutil.ReadFile("D:\\GoglandProjects\\yiyidb\\yiyidb.zip")
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	err = kv.Put(bts, bts, 0)
+//	if err != nil {
+//		panic(err)
+//	}
+//	btss, err := kv.Get(bts)
+//	if err != nil {
+//		panic(err)
+//	}
+//	err = ioutil.WriteFile("D:\\GoglandProjects\\yiyidb\\yiyidb1.zip", btss, 777)
+//	if err != nil {
+//		panic(err)
+//	}
+//	//测试结果显示 key和value不超过512m为保证可用性，但性能下降，建议把key尽可能精练
+//}

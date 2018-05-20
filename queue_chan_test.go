@@ -5,6 +5,7 @@ import (
 	"time"
 	"testing"
 	"strconv"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestChanQueue_EnqueueObject(t *testing.T) {
@@ -21,35 +22,26 @@ func TestChanQueue_EnqueueObject(t *testing.T) {
 	}
 
 	msg := &object{}
-	msg.Key= "dkfjdkf"
+	msg.Key = "dkfjdkf"
 	msg.Value = []byte("ddddd")
 
 	for i := 1; i <= 5; i++ {
-		msg.Key= "dkfjdkf" + strconv.Itoa(i)
-		msg.Value = []byte("ddddd"+ strconv.Itoa(i))
-		if item, err := q.EnqueueObject("jac", *msg); err == nil {
-			rmsg := &object{}
-			item.ToObject(rmsg)
-			fmt.Println("out",rmsg.Key, string(rmsg.Value))
-			//t.Error(err)
+		msg := object{
+			Key:   "dkfjdkf" + strconv.Itoa(i),
+			Value: []byte("ddddd" + strconv.Itoa(i)),
 		}
+		_, err := q.EnqueueObject("jac", msg)
+		assert.NoError(t, err)
 	}
 
 	vals, err := q.PeekStart("jac")
-	if err != nil {
-		if err.Error() != "out of len" {
-			fmt.Println("send offline err:", err)
-		}
-		//return
-	}
-	for _, v := range vals {
-		remsg := &object{}
-		err = v.ToObject(remsg)
-		if err != nil {
-			fmt.Println("send offline to object err:", err)
-		}
-		fmt.Println(remsg.Key, string(remsg.Value))
-	}
+	assert.NoError(t, err)
+	remsg := object{}
+	err = vals[0].ToObject(&remsg)
+	assert.NoError(t, err)
+	assert.Equal(t, remsg.Value, []byte("ddddd1"))
+
+	q.Drop()
 }
 
 func TestQueueChan_Enqueue(t *testing.T) {
@@ -61,32 +53,26 @@ func TestQueueChan_Enqueue(t *testing.T) {
 	defer q.Close()
 
 	for i := 1; i <= 5; i++ {
-		if _, err = q.Enqueue("jac", []byte(fmt.Sprintf("value for item %d", i))); err != nil {
-			t.Error(err)
-		}
+		_, err = q.Enqueue("jac", []byte(fmt.Sprintf("value for item %d", i)))
+		assert.NoError(t, err)
 	}
 
 	for i := 1; i <= 8; i++ {
-		if _, err = q.Enqueue("quy", []byte(fmt.Sprintf("value for item %d", i))); err != nil {
-			t.Error(err)
-		}
+		_, err = q.Enqueue("quy", []byte(fmt.Sprintf("value for item %d", i)))
+		assert.NoError(t, err)
 	}
 
 	for i := 1; i <= 5; i++ {
-		deqItem, err := q.Dequeue("jac")
-		if err != nil {
-			t.Error(err)
-		}
-		fmt.Println("deq:", deqItem.ID, string(deqItem.Value))
+		_, err := q.Dequeue("jac")
+		assert.NoError(t, err)
 	}
 
 	for i := 1; i <= 8; i++ {
-		deqItem, err := q.Dequeue("quy")
-		if err != nil {
-			t.Error(err)
-		}
-		fmt.Println("deq:", deqItem.ID, string(deqItem.Value))
+		_, err := q.Dequeue("quy")
+		assert.NoError(t, err)
 	}
+
+	q.Drop()
 }
 
 func TestChanQueue_Clear(t *testing.T) {
@@ -105,9 +91,7 @@ func TestChanQueue_Clear(t *testing.T) {
 	q.Clear("jac")
 
 	_, err = q.Dequeue("jac")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Equal(t, err.Error(), "queue is empty")
 	//fmt.Println("deq:",deqItem.ID, string(deqItem.Value))
 }
 

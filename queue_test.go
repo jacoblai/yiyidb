@@ -6,6 +6,7 @@ import (
 	"time"
 	"os"
 	"strconv"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestQueueClose(t *testing.T) {
@@ -16,23 +17,19 @@ func TestQueueClose(t *testing.T) {
 	}
 	defer q.Drop()
 
-	if _, err = q.EnqueueString("value"); err != nil {
-		t.Error(err)
-	}
+	_, err = q.EnqueueString("value")
+	assert.NoError(t, err)
 
-	if q.Length() != 1 {
-		t.Errorf("Expected queue length of 1, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 1)
 
 	q.Close()
 
-	if _, err = q.Dequeue(); err != ErrDBClosed {
-		t.Errorf("Expected to get database closed error, got %s", err.Error())
-	}
+	_, err = q.Dequeue()
+	assert.Equal(t, err, ErrDBClosed)
 
-	if q.Length() != 0 {
-		t.Errorf("Expected queue length of 0, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 0)
+
+	q.Drop()
 }
 
 func TestQueueDrop(t *testing.T) {
@@ -62,14 +59,13 @@ func TestQueueEnqueue(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
-	if q.Length() != 10 {
-		t.Errorf("Expected queue size of 10, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 10)
+
+	q.Drop()
 }
 
 func TestQueueDequeue(t *testing.T) {
@@ -81,23 +77,16 @@ func TestQueueDequeue(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
-	if q.Length() != 10 {
-		t.Errorf("Expected queue length of 10, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 10)
 
 	deqItem, err := q.Dequeue()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if q.Length() != 9 {
-		t.Errorf("Expected queue length of 9, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 9)
 
 	compStr := "value for item 1"
 
@@ -108,29 +97,21 @@ func TestQueueDequeue(t *testing.T) {
 	//test head = tail
 	for i := 1; i <= 9; i++ {
 		_, err := q.Dequeue()
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 	}
 
-	if q.Length() != 0 {
-		t.Errorf("Queue reset index err, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 0)
 
-	if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", 888)); err != nil {
-		t.Error(err)
-	}
+	_, err = q.EnqueueString(fmt.Sprintf("value for item %d", 888))
+	assert.NoError(t, err)
 
 	deqItem, err = q.Dequeue()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	compStr = "value for item 888"
+	assert.Equal(t, deqItem.ToString(), compStr)
 
-	if deqItem.ToString() != compStr {
-		t.Errorf("Expected string to be '%s', got '%s'", compStr, deqItem.ToString())
-	}
+	q.Drop()
 }
 
 func TestQueuePeek(t *testing.T) {
@@ -143,22 +124,17 @@ func TestQueuePeek(t *testing.T) {
 
 	compStr := "value for item"
 
-	if _, err = q.EnqueueString(compStr); err != nil {
-		t.Error(err)
-	}
+	_, err = q.EnqueueString(compStr)
+	assert.NoError(t, err)
 
 	peekItem, err := q.Peek()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if peekItem.ToString() != compStr {
-		t.Errorf("Expected string to be '%s', got '%s'", compStr, peekItem.ToString())
-	}
+	assert.Equal(t, peekItem.ToString(), compStr)
 
-	if q.Length() != 1 {
-		t.Errorf("Expected queue length of 1, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 1)
+
+	q.Drop()
 }
 
 func TestQueuePeekByOffset(t *testing.T) {
@@ -170,9 +146,8 @@ func TestQueuePeekByOffset(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
 	compStrFirst := "value for item 1"
@@ -180,35 +155,22 @@ func TestQueuePeekByOffset(t *testing.T) {
 	compStr := "value for item 4"
 
 	peekFirstItem, err := q.PeekByOffset(0)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if peekFirstItem.ToString() != compStrFirst {
-		t.Errorf("Expected string to be '%s', got '%s'", compStrFirst, peekFirstItem.ToString())
-	}
+	assert.Equal(t, peekFirstItem.ToString(), compStrFirst)
 
 	peekLastItem, err := q.PeekByOffset(9)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if peekLastItem.ToString() != compStrLast {
-		t.Errorf("Expected string to be '%s', got '%s'", compStrLast, peekLastItem.ToString())
-	}
+	assert.Equal(t, peekLastItem.ToString(), compStrLast)
 
 	peekItem, err := q.PeekByOffset(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if peekItem.ToString() != compStr {
-		t.Errorf("Expected string to be '%s', got '%s'", compStr, peekItem.ToString())
-	}
+	assert.Equal(t, peekItem.ToString(), compStr)
+	assert.Equal(t, int(q.Length()), 10)
 
-	if q.Length() != 10 {
-		t.Errorf("Expected queue length of 10, got %d", q.Length())
-	}
+	q.Drop()
 }
 
 func TestQueuePeekByID(t *testing.T) {
@@ -220,25 +182,20 @@ func TestQueuePeekByID(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
 	compStr := "value for item 3"
 
 	peekItem, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if peekItem.ToString() != compStr {
-		t.Errorf("Expected string to be '%s', got '%s'", compStr, peekItem.ToString())
-	}
+	assert.Equal(t, peekItem.ToString(), compStr)
 
-	if q.Length() != 10 {
-		t.Errorf("Expected queue length of 10, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 10)
+
+	q.Drop()
 }
 
 func TestQueueUpdate(t *testing.T) {
@@ -250,40 +207,28 @@ func TestQueueUpdate(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
 	item, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	oldCompStr := "value for item 3"
 	newCompStr := "new value for item 3"
-
-	if item.ToString() != oldCompStr {
-		t.Errorf("Expected string to be '%s', got '%s'", oldCompStr, item.ToString())
-	}
+	assert.Equal(t, item.ToString(), oldCompStr)
 
 	updatedItem, err := q.Update(item.ID, []byte(newCompStr))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if updatedItem.ToString() != newCompStr {
-		t.Errorf("Expected current item value to be '%s', got '%s'", newCompStr, item.ToString())
-	}
+	assert.Equal(t, updatedItem.ToString(), newCompStr)
 
 	newItem, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if newItem.ToString() != newCompStr {
-		t.Errorf("Expected new item value to be '%s', got '%s'", newCompStr, item.ToString())
-	}
+	assert.Equal(t, newItem.ToString(), newCompStr)
+
+	q.Drop()
 }
 
 func TestQueueUpdateString(t *testing.T) {
@@ -295,40 +240,29 @@ func TestQueueUpdateString(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
 	item, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	oldCompStr := "value for item 3"
 	newCompStr := "new value for item 3"
 
-	if item.ToString() != oldCompStr {
-		t.Errorf("Expected string to be '%s', got '%s'", oldCompStr, item.ToString())
-	}
+	assert.Equal(t, item.ToString(), oldCompStr)
 
 	updatedItem, err := q.UpdateString(item.ID, newCompStr)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if updatedItem.ToString() != newCompStr {
-		t.Errorf("Expected current item value to be '%s', got '%s'", newCompStr, item.ToString())
-	}
+	assert.Equal(t, updatedItem.ToString(), newCompStr)
 
 	newItem, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if newItem.ToString() != newCompStr {
-		t.Errorf("Expected new item value to be '%s', got '%s'", newCompStr, item.ToString())
-	}
+	assert.Equal(t, newItem.ToString(), newCompStr)
+
+	q.Drop()
 }
 
 func TestQueueUpdateObject(t *testing.T) {
@@ -344,53 +278,39 @@ func TestQueueUpdateObject(t *testing.T) {
 	}
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueObject(object{i}); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueObject(object{i})
+		assert.NoError(t, err)
 	}
 
 	item, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	oldCompObj := object{3}
 	newCompObj := object{33}
 
 	var obj object
-	if err := item.ToObject(&obj); err != nil {
-		t.Error(err)
-	}
+	err = item.ToObject(&obj)
+	assert.NoError(t, err)
 
-	if obj != oldCompObj {
-		t.Errorf("Expected object to be '%+v', got '%+v'", oldCompObj, obj)
-	}
+	assert.Equal(t, obj, oldCompObj)
 
 	updatedItem, err := q.UpdateObject(item.ID, newCompObj)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if err := updatedItem.ToObject(&obj); err != nil {
-		t.Error(err)
-	}
+	err = updatedItem.ToObject(&obj)
+	assert.NoError(t, err)
 
-	if obj != newCompObj {
-		t.Errorf("Expected current object to be '%+v', got '%+v'", newCompObj, obj)
-	}
+	assert.Equal(t, obj, newCompObj)
 
 	newItem, err := q.PeekByID(3)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if err := newItem.ToObject(&obj); err != nil {
-		t.Error(err)
-	}
+	err = newItem.ToObject(&obj)
+	assert.NoError(t, err)
 
-	if obj != newCompObj {
-		t.Errorf("Expected new object to be '%+v', got '%+v'", newCompObj, obj)
-	}
+	assert.Equal(t, obj, newCompObj)
+
+	q.Drop()
 }
 
 func TestQueueUpdateOutOfBounds(t *testing.T) {
@@ -402,31 +322,24 @@ func TestQueueUpdateOutOfBounds(t *testing.T) {
 	defer q.Drop()
 
 	for i := 1; i <= 10; i++ {
-		if _, err = q.EnqueueString(fmt.Sprintf("value for item %d", i)); err != nil {
-			t.Error(err)
-		}
+		_, err = q.EnqueueString(fmt.Sprintf("value for item %d", i))
+		assert.NoError(t, err)
 	}
 
-	if q.Length() != 10 {
-		t.Errorf("Expected queue length of 10, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 10)
 
 	deqItem, err := q.Dequeue()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	if q.Length() != 9 {
-		t.Errorf("Expected queue length of 9, got %d", q.Length())
-	}
+	assert.Equal(t, int(q.Length()), 9)
 
-	if _, err = q.Update(deqItem.ID, []byte(`new value`)); err != ErrOutOfBounds {
-		t.Errorf("Expected to get queue out of bounds error, got %s", err.Error())
-	}
+	_, err = q.Update(deqItem.ID, []byte(`new value`))
+	assert.Equal(t, err, ErrOutOfBounds)
 
-	if _, err = q.Update(deqItem.ID+1, []byte(`new value`)); err != nil {
-		t.Error(err)
-	}
+	_, err = q.Update(deqItem.ID+1, []byte(`new value`))
+	assert.NoError(t, err)
+
+	q.Drop()
 }
 
 func TestQueueEmpty(t *testing.T) {
@@ -438,19 +351,15 @@ func TestQueueEmpty(t *testing.T) {
 	defer q.Drop()
 
 	_, err = q.EnqueueString("value for item")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	_, err = q.Dequeue()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	_, err = q.Dequeue()
-	if err != ErrEmpty {
-		t.Errorf("Expected to get empty error, got %s", err.Error())
-	}
+	assert.Equal(t, err, ErrEmpty)
+
+	q.Drop()
 }
 
 func TestQueueOutOfBounds(t *testing.T) {
@@ -462,14 +371,12 @@ func TestQueueOutOfBounds(t *testing.T) {
 	defer q.Drop()
 
 	_, err = q.EnqueueString("value for item")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	_, err = q.PeekByOffset(2)
-	if err != ErrOutOfBounds {
-		t.Errorf("Expected to get queue out of bounds error, got %s", err.Error())
-	}
+	assert.Equal(t, err, ErrOutOfBounds)
+
+	q.Drop()
 }
 
 func TestQueue_EnqueueBat(t *testing.T) {
@@ -486,17 +393,13 @@ func TestQueue_EnqueueBat(t *testing.T) {
 	}
 
 	err = q.EnqueueBatch(vals)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
 	item, err := q.PeekByID(499)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if string(item.Value) != "test values499" {
-		t.Error("not encode all")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, item.Value,[]byte("test values499"))
+
+	q.Drop()
 }
 
 func BenchmarkQueueEnqueue(b *testing.B) {
@@ -516,7 +419,7 @@ func BenchmarkQueueEnqueue(b *testing.B) {
 	}
 }
 
-type object struct{
+type object struct {
 	aaa int
 }
 
@@ -541,7 +444,7 @@ func BenchmarkQueueDequeue(b *testing.B) {
 		for pb.Next() {
 			if item, err := q.Dequeue(); err != nil {
 				b.Error(err)
-			}else{
+			} else {
 				var obj object
 				item.ToObject(&obj)
 				b.Log(obj.aaa)
