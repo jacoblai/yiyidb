@@ -1,27 +1,27 @@
 package yiyidb
 
 import (
-	"reflect"
-	"gopkg.in/vmihailenco/msgpack.v2"
-	"github.com/syndtr/goleveldb/leveldb"
 	"errors"
-	"strings"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"gopkg.in/vmihailenco/msgpack.v2"
+	"reflect"
+	"strings"
 )
 
 func (k *Kvdb) ExistsMix(chname, key string) bool {
 	if len(key) > k.maxkv {
 		return false
 	}
-	ok, _ := k.db.Has(idToKeyMix(chname,key), k.iteratorOpts)
+	ok, _ := k.db.Has(idToKeyMix(chname, key), k.iteratorOpts)
 	return ok
 }
 
 func (k *Kvdb) GetMix(chname, key string) ([]byte, error) {
-	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
+	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
 		return nil, errors.New("ch or key has '-'")
 	}
-	data, err := k.db.Get(idToKeyMix(chname,key), nil)
+	data, err := k.db.Get(idToKeyMix(chname, key), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int) error {
 	if len(value) > k.maxkv {
 		return errors.New("out of len")
 	}
-	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
+	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
 		return errors.New("ch or key has '-'")
 	}
 	nk := idToKeyMix(chname, key)
@@ -74,7 +74,7 @@ func (k *Kvdb) PutObjectMix(chname, key string, value interface{}, ttl int) erro
 }
 
 func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
-	if strings.Contains(chname,"-"){
+	if strings.Contains(chname, "-") {
 		return errors.New("ch or key has '-' ")
 	}
 	batch := new(leveldb.Batch)
@@ -107,7 +107,7 @@ func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
 }
 
 func (k *Kvdb) DelMix(chname string) error {
-	all := k.KeyStartKeys([]byte(chname+"-"))
+	all := k.KeyStartKeys([]byte(chname + "-"))
 	items := make([]BatItem, 0)
 	for _, v := range all {
 		item := BatItem{
@@ -120,7 +120,7 @@ func (k *Kvdb) DelMix(chname string) error {
 }
 
 func (k *Kvdb) DelColMix(chname, key string) error {
-	if strings.Contains(chname,"-") || strings.Contains(string(key), "-"){
+	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
 		return errors.New("ch or key has '-' ")
 	}
 	nk := []byte(idToKeyMix(chname, key))
@@ -134,7 +134,6 @@ func (k *Kvdb) DelColMix(chname, key string) error {
 	return nil
 
 }
-
 
 func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
 	nt := reflect.TypeOf(Ntype)
@@ -171,4 +170,17 @@ func (k *Kvdb) AllByKVMix(chname string) []KvItem {
 	}
 	iter.Release()
 	return result
+}
+
+func (k *Kvdb) AllByMixKeys() []map[string]string {
+	var keys []map[string]string
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	for iter.Next() {
+		c, k := keyToIdMix(iter.Key())
+		nk := make(map[string]string)
+		nk[c] = k
+		keys = append(keys, nk)
+	}
+	iter.Release()
+	return keys
 }
