@@ -74,7 +74,7 @@ func (q *ChanQueue) init() error {
 		for k, v := range q.mats {
 			rg := util.BytesPrefix([]byte(k))
 			iter.Seek(rg.Start)
-			v.head = keyToID(iter.Key())
+			v.head = keyToID(iter.Key()) - 1
 			var lastid int64
 			for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
 				lastid = keyToID(iter.Key())
