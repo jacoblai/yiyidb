@@ -1,11 +1,11 @@
 package yiyidb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb/util"
-	"reflect"
-	"gopkg.in/vmihailenco/msgpack.v2"
 	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"gopkg.in/vmihailenco/msgpack.v2"
+	"reflect"
 	"regexp"
 )
 
@@ -84,7 +84,7 @@ func (k *Kvdb) BatPutOrDelChan(chname string, items *[]BatItem) error {
 	}
 }
 
-func (k *Kvdb) getmtinfo(chname string) (uint64, uint64) {
+func (k *Kvdb) getmtinfo(chname string) (int64, int64) {
 	k.RLock()
 	defer k.RUnlock()
 	if mt, ok := k.mats[chname]; ok {
@@ -93,7 +93,7 @@ func (k *Kvdb) getmtinfo(chname string) (uint64, uint64) {
 	return 0, 0
 }
 
-func (k *Kvdb) setmtinfo(chname string, h, t uint64) {
+func (k *Kvdb) setmtinfo(chname string, h, t int64) {
 	k.Lock()
 	defer k.Unlock()
 	if mt, ok := k.mats[chname]; ok {
@@ -214,12 +214,12 @@ func (k *Kvdb) init() {
 		for iter.Next() {
 			mixName := keyName(iter.Key())
 			if _, ok := k.mats[mixName]; !ok {
-				k.mats[mixName] = &mat{head: 0, tail: 0}
+				k.mats[mixName] = &mat{head: -1, tail: 0}
 			}
 		}
 		if len(k.mats) > 0 {
 			for nk, v := range k.mats {
-				var lastid uint64
+				var lastid int64
 				iter := k.db.NewIterator(util.BytesPrefix([]byte(nk+"-")), k.iteratorOpts)
 				for iter.Next() {
 					v.head++

@@ -1,15 +1,15 @@
 package yiyidb
 
 import (
-	"sync"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/filter"
-	"errors"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
-	"os"
+	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/vmihailenco/msgpack.v2"
+	"os"
+	"sync"
 )
 
 //FIFO
@@ -25,8 +25,8 @@ type ChanQueue struct {
 
 type mat struct {
 	mixName string
-	head    uint64
-	tail    uint64
+	head    int64
+	tail    int64
 }
 
 func OpenChanQueue(dataDir string, defaultKeyLen int) (*ChanQueue, error) {
@@ -67,7 +67,7 @@ func (q *ChanQueue) init() error {
 	for iter.Next() {
 		mixName := keyName(iter.Key())
 		if _, ok := q.mats[mixName]; !ok {
-			q.mats[mixName] = &mat{mixName: mixName, head: 0, tail: 0}
+			q.mats[mixName] = &mat{mixName: mixName, head: -1, tail: 0}
 		}
 	}
 	if len(q.mats) > 0 {
@@ -75,7 +75,7 @@ func (q *ChanQueue) init() error {
 			rg := util.BytesPrefix([]byte(k))
 			iter.Seek(rg.Start)
 			v.head = keyToID(iter.Key())
-			var lastid uint64
+			var lastid int64
 			for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
 				lastid = keyToID(iter.Key())
 			}
@@ -144,7 +144,7 @@ func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
 	}
 }
 
-func (q *ChanQueue) GetMetal(chname string) (uint64, uint64) {
+func (q *ChanQueue) GetMetal(chname string) (int64, int64) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
@@ -170,7 +170,7 @@ func (q *ChanQueue) GetChans() ([]string, error) {
 	return chans, nil
 }
 
-func (q *ChanQueue) Length(chname string) (uint64, error) {
+func (q *ChanQueue) Length(chname string) (int64, error) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
@@ -267,7 +267,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	return result, nil
 }
 
-func (q *ChanQueue) getItemByID(chname string, id uint64) (*QueueItem, error) {
+func (q *ChanQueue) getItemByID(chname string, id int64) (*QueueItem, error) {
 	hq := q.mats[chname]
 	if hq.tail-hq.head == 0 {
 		return nil, ErrEmpty
@@ -294,7 +294,7 @@ func (q *ChanQueue) Close() error {
 		return ErrDBClosed
 	}
 	err := q.db.Close()
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	q.isOpen = false

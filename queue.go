@@ -1,13 +1,13 @@
 package yiyidb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/filter"
-	"gopkg.in/vmihailenco/msgpack.v2"
-	"sync"
-	"os"
 	"errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+	"gopkg.in/vmihailenco/msgpack.v2"
+	"os"
+	"sync"
 )
 
 //FIFO
@@ -15,8 +15,8 @@ type Queue struct {
 	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
-	head         uint64
-	tail         uint64
+	head         int64
+	tail         int64
 	isOpen       bool
 	iteratorOpts *opt.ReadOptions
 	maxkv        int
@@ -147,7 +147,7 @@ func (q *Queue) Peek() (*QueueItem, error) {
 	return q.getItemByID(q.head + 1)
 }
 
-func (q *Queue) PeekByOffset(offset uint64) (*QueueItem, error) {
+func (q *Queue) PeekByOffset(offset int64) (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
@@ -156,7 +156,7 @@ func (q *Queue) PeekByOffset(offset uint64) (*QueueItem, error) {
 	return q.getItemByID(q.head + offset + 1)
 }
 
-func (q *Queue) PeekByID(id uint64) (*QueueItem, error) {
+func (q *Queue) PeekByID(id int64) (*QueueItem, error) {
 	q.RLock()
 	defer q.RUnlock()
 	if !q.isOpen {
@@ -165,7 +165,7 @@ func (q *Queue) PeekByID(id uint64) (*QueueItem, error) {
 	return q.getItemByID(id)
 }
 
-func (q *Queue) Update(id uint64, newValue []byte) (*QueueItem, error) {
+func (q *Queue) Update(id int64, newValue []byte) (*QueueItem, error) {
 	q.Lock()
 	defer q.Unlock()
 	if !q.isOpen {
@@ -186,11 +186,11 @@ func (q *Queue) Update(id uint64, newValue []byte) (*QueueItem, error) {
 	return item, nil
 }
 
-func (q *Queue) UpdateString(id uint64, newValue string) (*QueueItem, error) {
+func (q *Queue) UpdateString(id int64, newValue string) (*QueueItem, error) {
 	return q.Update(id, []byte(newValue))
 }
 
-func (q *Queue) UpdateObject(id uint64, newValue interface{}) (*QueueItem, error) {
+func (q *Queue) UpdateObject(id int64, newValue interface{}) (*QueueItem, error) {
 	msg, err := msgpack.Marshal(newValue)
 	if err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func (q *Queue) UpdateObject(id uint64, newValue interface{}) (*QueueItem, error
 	return q.Update(id, msg)
 }
 
-func (q *Queue) Length() uint64 {
+func (q *Queue) Length() int64 {
 	q.RLock()
 	defer q.RUnlock()
 	return q.tail - q.head
@@ -221,8 +221,8 @@ func (q *Queue) Drop() {
 	os.RemoveAll(q.DataDir)
 }
 
-func (q *Queue) getItemByID(id uint64) (*QueueItem, error) {
-	if q.tail - q.head == 0 {
+func (q *Queue) getItemByID(id int64) (*QueueItem, error) {
+	if q.tail-q.head == 0 {
 		return nil, ErrEmpty
 	} else if id <= q.head || id > q.tail {
 		return nil, ErrOutOfBounds

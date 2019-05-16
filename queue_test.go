@@ -1,12 +1,12 @@
 package yiyidb
 
 import (
-	"testing"
 	"fmt"
-	"time"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"strconv"
-	"github.com/stretchr/testify/assert"
+	"testing"
+	"time"
 )
 
 func TestQueueClose(t *testing.T) {
@@ -397,7 +397,7 @@ func TestQueue_EnqueueBat(t *testing.T) {
 
 	item, err := q.PeekByID(499)
 	assert.NoError(t, err)
-	assert.Equal(t, item.Value,[]byte("test values499"))
+	assert.Equal(t, item.Value, []byte("test values499"))
 
 	q.Drop()
 }

@@ -2,10 +2,10 @@ package yiyidb
 
 import (
 	"fmt"
-	"time"
-	"testing"
-	"strconv"
 	"github.com/stretchr/testify/assert"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestChanQueue_EnqueueObject(t *testing.T) {
@@ -62,12 +62,12 @@ func TestQueueChan_Enqueue(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	for i := 1; i <= 5; i++ {
+	for i := 0; i < 5; i++ {
 		_, err := q.Dequeue("jac")
 		assert.NoError(t, err)
 	}
 
-	for i := 1; i <= 8; i++ {
+	for i := 0; i < 8; i++ {
 		_, err := q.Dequeue("quy")
 		assert.NoError(t, err)
 	}

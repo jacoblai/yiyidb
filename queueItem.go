@@ -1,10 +1,10 @@
 package yiyidb
 
 import (
-	"encoding/binary"
-	"gopkg.in/vmihailenco/msgpack.v2"
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 const (
@@ -20,7 +20,7 @@ var (
 )
 
 type QueueItem struct {
-	ID    uint64
+	ID    int64
 	Key   []byte
 	Value []byte
 }
@@ -34,19 +34,19 @@ func (i *QueueItem) ToObject(value interface{}) error {
 	return err
 }
 
-func IdToKeyPure(id uint64) []byte {
+func IdToKeyPure(id int64) []byte {
 	key := make([]byte, 8)
-	binary.BigEndian.PutUint64(key, id)
+	binary.BigEndian.PutUint64(key, uint64(id))
 	return key
 }
 
-func KeyToIDPure(key []byte) uint64 {
-	return binary.BigEndian.Uint64(key)
+func KeyToIDPure(key []byte) int64 {
+	return int64(binary.BigEndian.Uint64(key))
 }
 
-func idToKey(chname string, id uint64) []byte {
+func idToKey(chname string, id int64) []byte {
 	kid := make([]byte, 8)
-	binary.BigEndian.PutUint64(kid, id)
+	binary.BigEndian.PutUint64(kid, uint64(id))
 	return append([]byte(chname+"-"), kid...)
 }
 
@@ -55,7 +55,7 @@ func idToKeyMix(chname, key string) []byte {
 }
 
 func keyToIdMix(mixkey []byte) (string, string) {
-	bts := bytes.Split(mixkey,[]byte("-"))
+	bts := bytes.Split(mixkey, []byte("-"))
 	return string(bts[0]), string(bts[1])
 }
 
@@ -67,10 +67,10 @@ func keyName(key []byte) string {
 	return ""
 }
 
-func keyToID(key []byte) uint64 {
+func keyToID(key []byte) int64 {
 	k := bytes.Split(key, []byte("-"))
 	if len(k) == 2 {
-		return binary.BigEndian.Uint64(k[1])
+		return int64(binary.BigEndian.Uint64(k[1]))
 	}
 	return 0
 }

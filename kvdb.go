@@ -1,20 +1,20 @@
 package yiyidb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/filter"
-	"github.com/syndtr/goleveldb/leveldb/util"
 	"bytes"
 	"errors"
-	"os"
-	"gopkg.in/vmihailenco/msgpack.v2"
-	"reflect"
-	"math"
-	"sync"
-	"regexp"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/pquerna/ffjson/ffjson"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
+	"gopkg.in/vmihailenco/msgpack.v2"
+	"math"
+	"os"
+	"reflect"
+	"regexp"
+	"sync"
 )
 
 type Kvdb struct {
