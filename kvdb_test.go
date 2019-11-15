@@ -1,13 +1,13 @@
 package yiyidb
 
 import (
-	"testing"
-	"path/filepath"
-	"os"
 	"fmt"
-	"time"
-	"strconv"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestKvdb_AllByKVMix(t *testing.T) {
@@ -24,9 +24,9 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.PutMix( "jac", "testkey1", []byte("testkey1"), 0)
-	kv.PutMix( "jac", "testkey22", []byte("testkey22"), 0)
-	kv.PutMix( "jac", "testke", []byte("testk3563453e"), 0)
+	kv.PutMix("jac", "testkey1", []byte("testkey1"), 0)
+	kv.PutMix("jac", "testkey22", []byte("testkey22"), 0)
+	kv.PutMix("jac", "testke", []byte("testk3563453e"), 0)
 
 	one, err := kv.GetMix("jac", "testke")
 	assert.NoError(t, err)
@@ -34,7 +34,7 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 
 	kv.DelColMix("jac", "testkey1")
 	all := kv.AllByKVMix("jac")
-	assert.Equal(t, all[0].Value,[]byte("testk3563453e"))
+	assert.Equal(t, all[0].Value, []byte("testk3563453e"))
 
 	kv.DelMix("jac")
 	all = kv.AllByKVMix("jac")
@@ -44,10 +44,10 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObjectMix("jjj","test",&object{111}, 0)
-    var o object
-    err = kv.GetObjectMix("jjj","test", &o)
-    assert.NoError(t, err)
+	kv.PutObjectMix("jjj", "test", &object{111}, 0)
+	var o object
+	err = kv.GetObjectMix("jjj", "test", &o)
+	assert.NoError(t, err)
 	assert.Equal(t, o.Value, 111)
 
 	all = kv.AllByObjectMix("jjj", o)
@@ -134,7 +134,7 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 	var o object
 	all, err := kv.KeyStartByObject([]byte("testkey"), o)
 	assert.NoError(t, err)
-	assert.Equal(t, all[0].Object, &object{1})
+	assert.Equal(t, all[1].Object, &object{2})
 
 	kv.Drop()
 }
