@@ -176,6 +176,40 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	return nil
 }
 
+func (k *Kvdb) GetObjectFirst(value interface{}) error {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.First() {
+		return errors.New("last op error")
+	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
+	err := msgpack.Unmarshal(iter.Value(), &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *Kvdb) GetObjectLast(value interface{}) error {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.Last() {
+		return errors.New("last op error")
+	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
+	err := msgpack.Unmarshal(iter.Value(), &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (k *Kvdb) GetJson(key []byte, value interface{}) error {
 	data, err := k.Get(key)
 	if err != nil {
@@ -186,6 +220,40 @@ func (k *Kvdb) GetJson(key []byte, value interface{}) error {
 		return errors.New("not ptr")
 	}
 	err = ffjson.Unmarshal(data, &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *Kvdb) GetJsonFirst(key []byte, value interface{}) error {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.First() {
+		return errors.New("last op error")
+	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
+	err := ffjson.Unmarshal(iter.Value(), &value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *Kvdb) GetJsonLast(key []byte, value interface{}) error {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.Last() {
+		return errors.New("last op error")
+	}
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		return errors.New("not ptr")
+	}
+	err := ffjson.Unmarshal(iter.Value(), &value)
 	if err != nil {
 		return err
 	}
