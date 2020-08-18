@@ -260,6 +260,15 @@ func (k *Kvdb) GetJsonLast(key []byte, value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
+func (k *Kvdb) GetLastKey() ([]byte, error) {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.Last() {
+		return nil, errors.New("last op error")
+	}
+	return iter.Key(), nil
+}
+
 func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if len(key) > k.maxkv || len(value) > k.maxkv {
 		return errors.New("out of len")
