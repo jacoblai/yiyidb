@@ -226,11 +226,29 @@ func (k *Kvdb) GetJson(key []byte, value interface{}) error {
 	return nil
 }
 
+func (k *Kvdb) GetFirst() ([]byte, error) {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.First() {
+		return nil, errors.New("op error")
+	}
+	return iter.Value(), nil
+}
+
+func (k *Kvdb) GetLast() ([]byte, error) {
+	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	defer iter.Release()
+	if !iter.Last() {
+		return nil, errors.New("op error")
+	}
+	return iter.Value(), nil
+}
+
 func (k *Kvdb) GetJsonFirst(key []byte, value interface{}) ([]byte, error) {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	if !iter.First() {
-		return nil, errors.New("last op error")
+		return nil, errors.New("op error")
 	}
 	v := reflect.ValueOf(value)
 	if v.Kind() != reflect.Ptr {
@@ -247,7 +265,7 @@ func (k *Kvdb) GetJsonLast(key []byte, value interface{}) ([]byte, error) {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	if !iter.Last() {
-		return nil, errors.New("last op error")
+		return nil, errors.New("op error")
 	}
 	v := reflect.ValueOf(value)
 	if v.Kind() != reflect.Ptr {
