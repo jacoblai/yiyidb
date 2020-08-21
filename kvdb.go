@@ -273,14 +273,12 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	if len(key) > k.maxkv || len(value) > k.maxkv {
 		return errors.New("out of len")
 	}
-	err := k.db.Put(key, value, nil)
-	if err != nil {
-		return err
-	}
-	if k.enableTtl && ttl > 0 {
-		k.ttldb.SetTTL(ttl, key)
-	}
+
 	return nil
+}
+
+func (k *Kvdb) OpenTransaction() (*leveldb.Transaction, error) {
+	return k.db.OpenTransaction()
 }
 
 func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
