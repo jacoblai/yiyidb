@@ -47,20 +47,22 @@ func KeyToIDPure(key []byte) int64 {
 func idToKey(chname string, id int64) []byte {
 	kid := make([]byte, 8)
 	binary.BigEndian.PutUint64(kid, uint64(id))
-	return append([]byte(chname+"-"), kid...)
+	chn := append([]byte(chname), 0xFF)
+	return append(chn, kid...)
 }
 
 func idToKeyMix(chname, key string) []byte {
-	return []byte(chname + "-" + key)
+	chn := append([]byte(chname), 0xFF)
+	return append(chn, []byte(key)...)
 }
 
 func keyToIdMix(mixkey []byte) (string, string) {
-	bts := bytes.Split(mixkey, []byte("-"))
+	bts := bytes.Split(mixkey, []byte{0xFF})
 	return string(bts[0]), string(bts[1])
 }
 
 func keyName(key []byte) string {
-	k := bytes.Split(key, []byte("-"))
+	k := bytes.Split(key, []byte{0xFF})
 	if len(k) == 2 {
 		return string(k[0])
 	}
@@ -68,7 +70,7 @@ func keyName(key []byte) string {
 }
 
 func keyToID(key []byte) int64 {
-	k := bytes.Split(key, []byte("-"))
+	k := bytes.Split(key, []byte{0xFF})
 	if len(k) == 2 {
 		return int64(binary.BigEndian.Uint64(k[1]))
 	}

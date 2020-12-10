@@ -7,7 +7,7 @@ import (
 
 type TtlItem struct {
 	sync.RWMutex
-	Dkey    []byte
+	Dukey   []byte
 	Expires *time.Time
 }
 

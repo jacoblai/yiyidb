@@ -2,11 +2,11 @@ package yiyidb
 
 import (
 	"fmt"
-	"testing"
-	"path/filepath"
-	"os"
-	"time"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 )
 
 func TestKvdb_AllByKVChan(t *testing.T) {
@@ -29,8 +29,8 @@ func TestKvdb_AllByKVChan(t *testing.T) {
 
 	kv.Del(idToKey("jac", 1))
 
-	all := kv.AllByKVChan("jac")
-	assert.Equal(t, all[0].Value, []byte("dfdfseeee ee value2"))
+	all := kv.AllByKVChan("yum")
+	assert.Equal(t, all[0].Value, []byte("test value1"))
 
 	kv.Drop()
 }

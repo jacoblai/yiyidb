@@ -1,12 +1,12 @@
 package yiyidb
 
 import (
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/filter"
-	"time"
-	"gopkg.in/vmihailenco/msgpack.v2"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+	"gopkg.in/vmihailenco/msgpack.v2"
+	"time"
 )
 
 type ttlRunner struct {
@@ -56,7 +56,7 @@ func (t *ttlRunner) SetTTL(expires int, masterDbKey []byte) error {
 	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
 		ttl := &TtlItem{
-			Dkey: masterDbKey,
+			Dukey: masterDbKey,
 		}
 		ttl.touch(time.Duration(expires) * time.Second)
 		ttlitem, _ := msgpack.Marshal(ttl)
@@ -104,7 +104,7 @@ func (t *ttlRunner) Run() {
 							t.db.Delete(iter.Key(), nil)
 						} else {
 							if it.expired() {
-								batch.Delete(it.Dkey)
+								batch.Delete(it.Dukey)
 								val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
 								if err == nil && t.HandleExpirse != nil {
 									t.HandleExpirse(iter.Key(), val)

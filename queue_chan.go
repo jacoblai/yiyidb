@@ -202,7 +202,7 @@ func (q *ChanQueue) Clear(chname string) error {
 		return errors.New("ch not ext")
 	}
 	batch := new(leveldb.Batch)
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
+	iter := q.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), q.iteratorOpts)
 	for iter.Next() {
 		batch.Delete(iter.Key())
 	}
@@ -248,7 +248,7 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 	}
 	batch := new(leveldb.Batch)
 	result := make([]QueueItem, 0)
-	iter := q.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), q.iteratorOpts)
+	iter := q.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), q.iteratorOpts)
 	for iter.Next() {
 		item := QueueItem{}
 		item.ID = keyToID(iter.Key())
@@ -283,8 +283,8 @@ func (q *ChanQueue) getItemByID(chname string, id int64) (*QueueItem, error) {
 }
 
 func (q *ChanQueue) Drop() {
-	q.Close()
-	os.RemoveAll(q.DataDir)
+	_ = q.Close()
+	_ = os.RemoveAll(q.DataDir)
 }
 
 func (q *ChanQueue) Close() error {

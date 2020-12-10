@@ -24,13 +24,11 @@ func (k *Kvdb) PutChan(chname string, value []byte, ttl int) error {
 			k.ttldb.SetTTL(ttl, nk)
 		}
 		k.addchan(nk)
-		return nil
 	} else {
 		if err := k.db.Put(idToKey(chname, 1), value, nil); err != nil {
 			return err
 		}
 		k.mats[chname] = &mat{tail: 1, head: 1}
-		return nil
 	}
 	return nil
 }
@@ -151,7 +149,7 @@ func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}) ([]KvIt
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
 			t := reflect.New(nt).Interface()
@@ -175,7 +173,7 @@ func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}) []KvItem {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)
@@ -193,7 +191,8 @@ func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}) []KvItem {
 
 func (k *Kvdb) AllByKVChan(chname string) []KvItem {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	cha := append([]byte(chname), 0xFF)
+	iter := k.db.NewIterator(util.BytesPrefix(cha), k.iteratorOpts)
 	for iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
@@ -220,7 +219,7 @@ func (k *Kvdb) init() {
 		if len(k.mats) > 0 {
 			for nk, v := range k.mats {
 				var lastid int64
-				iter := k.db.NewIterator(util.BytesPrefix([]byte(nk+"-")), k.iteratorOpts)
+				iter := k.db.NewIterator(util.BytesPrefix(append([]byte(nk), 0xFF)), k.iteratorOpts)
 				for iter.Next() {
 					v.head++
 					lastid = keyToID(iter.Key())

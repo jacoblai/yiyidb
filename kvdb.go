@@ -86,16 +86,16 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 }
 
 func Precision(f float64, prec int, round bool) float64 {
-	pow10_n := math.Pow10(prec)
+	pow10N := math.Pow10(prec)
 	if round {
-		return (math.Trunc(f+0.5/pow10_n) * pow10_n) / pow10_n
+		return (math.Trunc(f+0.5/pow10N) * pow10N) / pow10N
 	}
-	return math.Trunc((f)*pow10_n) / pow10_n
+	return math.Trunc((f)*pow10N) / pow10N
 }
 
 func (k *Kvdb) Drop() {
-	k.Close()
-	os.RemoveAll(k.DataDir)
+	_ = k.Close()
+	_ = os.RemoveAll(k.DataDir)
 }
 
 func (k *Kvdb) onExp(key, value []byte) {
@@ -244,7 +244,7 @@ func (k *Kvdb) GetLast() ([]byte, []byte, error) {
 	return iter.Key(), iter.Value(), nil
 }
 
-func (k *Kvdb) GetJsonFirst(key []byte, value interface{}) ([]byte, error) {
+func (k *Kvdb) GetJsonFirst(value interface{}) ([]byte, error) {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	if !iter.First() {
@@ -261,7 +261,7 @@ func (k *Kvdb) GetJsonFirst(key []byte, value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) GetJsonLast(key []byte, value interface{}) ([]byte, error) {
+func (k *Kvdb) GetJsonLast(value interface{}) ([]byte, error) {
 	iter := k.db.NewIterator(nil, k.iteratorOpts)
 	defer iter.Release()
 	if !iter.Last() {

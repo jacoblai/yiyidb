@@ -6,7 +6,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"reflect"
-	"strings"
 )
 
 func (k *Kvdb) ExistsMix(chname, key string) bool {
@@ -18,9 +17,6 @@ func (k *Kvdb) ExistsMix(chname, key string) bool {
 }
 
 func (k *Kvdb) GetMix(chname, key string) ([]byte, error) {
-	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
-		return nil, errors.New("ch or key has '-'")
-	}
 	data, err := k.db.Get(idToKeyMix(chname, key), nil)
 	if err != nil {
 		return nil, err
@@ -48,9 +44,6 @@ func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int) error {
 	if len(value) > k.maxkv {
 		return errors.New("out of len")
 	}
-	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
-		return errors.New("ch or key has '-'")
-	}
 	nk := idToKeyMix(chname, key)
 	if err := k.db.Put(nk, value, nil); err != nil {
 		return err
@@ -74,9 +67,6 @@ func (k *Kvdb) PutObjectMix(chname, key string, value interface{}, ttl int) erro
 }
 
 func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
-	if strings.Contains(chname, "-") {
-		return errors.New("ch or key has '-' ")
-	}
 	batch := new(leveldb.Batch)
 	for _, v := range *items {
 		nk := idToKeyMix(chname, string(v.Key))
@@ -107,7 +97,7 @@ func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
 }
 
 func (k *Kvdb) DelMix(chname string) error {
-	all := k.KeyStartKeys([]byte(chname + "-"))
+	all := k.KeyStartKeys(append([]byte(chname), 0xFF))
 	items := make([]BatItem, 0)
 	for _, v := range all {
 		item := BatItem{
@@ -120,10 +110,7 @@ func (k *Kvdb) DelMix(chname string) error {
 }
 
 func (k *Kvdb) DelColMix(chname, key string) error {
-	if strings.Contains(chname, "-") || strings.Contains(string(key), "-") {
-		return errors.New("ch or key has '-' ")
-	}
-	nk := []byte(idToKeyMix(chname, key))
+	nk := idToKeyMix(chname, key)
 	err := k.db.Delete(nk, nil)
 	if err != nil {
 		return err
@@ -141,7 +128,7 @@ func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)
@@ -159,7 +146,7 @@ func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
 
 func (k *Kvdb) AllByKVMix(chname string) []KvItem {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix([]byte(chname+"-")), k.iteratorOpts)
+	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
 	for iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
