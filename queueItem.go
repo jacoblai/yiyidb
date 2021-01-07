@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"gopkg.in/vmihailenco/msgpack.v2"
+	"reflect"
 )
 
 const (
@@ -30,7 +31,11 @@ func (i *QueueItem) ToString() string {
 }
 
 func (i *QueueItem) ToObject(value interface{}) error {
-	err := msgpack.Unmarshal(i.Value, &value)
+	t := reflect.ValueOf(value)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	err := msgpack.Unmarshal(i.Value, t.Interface())
 	return err
 }
 
