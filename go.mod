@@ -1,4 +1,4 @@
-module yiyidb
+module github.com/jacoblai/yiyidb
 
 go 1.15
 
