@@ -9,23 +9,33 @@ import (
 )
 
 func (k *Kvdb) ExistsMix(chname, key string) bool {
-	if len(key) > k.maxkv {
-		return false
+	if k.tran != nil {
+		ok, _ := k.tran.Has(idToKeyMix(chname, key), k.iteratorOpts)
+		return ok
+	} else {
+		ok, _ := k.db.Has(idToKeyMix(chname, key), k.iteratorOpts)
+		return ok
 	}
-	ok, _ := k.db.Has(idToKeyMix(chname, key), k.iteratorOpts)
-	return ok
 }
 
 func (k *Kvdb) GetMix(chname, key string) ([]byte, error) {
-	data, err := k.db.Get(idToKeyMix(chname, key), nil)
-	if err != nil {
-		return nil, err
+	if k.tran != nil {
+		data, err := k.tran.Get(idToKeyMix(chname, key), nil)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	} else {
+		data, err := k.db.Get(idToKeyMix(chname, key), nil)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
 	}
-	return data, nil
 }
 
-func (k *Kvdb) GetObjectMix(chname, key string, value interface{}) error {
-	data, err := k.Get(idToKeyMix(chname, key))
+func (k *Kvdb) GetObjectMix(chname, key string, value interface{}, tran bool) error {
+	data, err := k.Get(idToKeyMix(chname, key), tran)
 	if err != nil {
 		return err
 	}
@@ -40,21 +50,15 @@ func (k *Kvdb) GetObjectMix(chname, key string, value interface{}) error {
 	return nil
 }
 
-func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int) error {
-	if len(value) > k.maxkv {
-		return errors.New("out of len")
-	}
+func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int, tran bool) error {
 	nk := idToKeyMix(chname, key)
-	if err := k.db.Put(nk, value, nil); err != nil {
+	if err := k.Put(nk, value, ttl, tran); err != nil {
 		return err
-	}
-	if k.enableTtl && ttl > 0 {
-		k.ttldb.SetTTL(ttl, nk)
 	}
 	return nil
 }
 
-func (k *Kvdb) PutObjectMix(chname, key string, value interface{}, ttl int) error {
+func (k *Kvdb) PutObjectMix(chname, key string, value interface{}, ttl int, tran bool) error {
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -63,7 +67,7 @@ func (k *Kvdb) PutObjectMix(chname, key string, value interface{}, ttl int) erro
 	if err != nil {
 		return err
 	}
-	return k.PutMix(chname, key, msg, ttl)
+	return k.PutMix(chname, key, msg, ttl, tran)
 }
 
 func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
@@ -72,32 +76,33 @@ func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem) error {
 		nk := idToKeyMix(chname, string(v.Key))
 		switch v.Op {
 		case "put":
-			if len(v.Key) > k.maxkv || len(v.Value) > k.maxkv {
-				return errors.New("out of len")
-			}
 			batch.Put(nk, v.Value)
 			if k.enableTtl && v.Ttl > 0 {
 				k.ttldb.SetTTL(v.Ttl, nk)
 			}
 		case "del":
-			if len(v.Key) > k.maxkv {
-				return errors.New("out of len")
-			}
 			batch.Delete(nk)
 			if k.enableTtl {
 				k.ttldb.DelTTL(nk)
 			}
 		}
 	}
-	err := k.db.Write(batch, nil)
-	if err != nil {
-		return err
+	if k.tran != nil {
+		err := k.tran.Write(batch, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := k.db.Write(batch, nil)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (k *Kvdb) DelMix(chname string) error {
-	all := k.KeyStartKeys(append([]byte(chname), 0xFF))
+func (k *Kvdb) DelMix(chname string, tran bool) error {
+	all := k.KeyStartKeys(append([]byte(chname), 0xFF), tran)
 	items := make([]BatItem, 0)
 	for _, v := range all {
 		item := BatItem{
@@ -106,29 +111,26 @@ func (k *Kvdb) DelMix(chname string) error {
 		}
 		items = append(items, item)
 	}
-	return k.BatPutOrDel(&items)
+	return k.BatPutOrDel(&items, tran)
 }
 
-func (k *Kvdb) DelColMix(chname, key string) error {
+func (k *Kvdb) DelColMix(chname, key string, tran bool) error {
 	nk := idToKeyMix(chname, key)
-	err := k.db.Delete(nk, nil)
+	err := k.Del(nk, tran)
 	if err != nil {
 		return err
-	}
-	if k.enableTtl {
-		k.ttldb.DelTTL(nk)
 	}
 	return nil
 
 }
 
-func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
+func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}, tran bool) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(append([]byte(chname), 0xFF)), tran)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)
@@ -144,9 +146,9 @@ func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}) []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllByKVMix(chname string) []KvItem {
+func (k *Kvdb) AllByKVMix(chname string, tran bool) []KvItem {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix(append([]byte(chname), 0xFF)), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(append([]byte(chname), 0xFF)), tran)
 	for iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
@@ -159,9 +161,9 @@ func (k *Kvdb) AllByKVMix(chname string) []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllByMixKeys() []map[string]string {
+func (k *Kvdb) AllByMixKeys(tran bool) []map[string]string {
 	var keys []map[string]string
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		c, k := keyToIdMix(iter.Key())
 		nk := make(map[string]string)

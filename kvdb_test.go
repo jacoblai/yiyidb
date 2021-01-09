@@ -24,33 +24,33 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.PutMix("jac", "testkey1", []byte("testkey1"), 0)
-	kv.PutMix("jac", "testkey22", []byte("testkey22"), 0)
-	kv.PutMix("jac", "testke", []byte("testk3563453e"), 0)
+	kv.PutMix("jac", "testkey1", []byte("testkey1"), 0, false)
+	kv.PutMix("jac", "testkey22", []byte("testkey22"), 0, false)
+	kv.PutMix("jac", "testke", []byte("testk3563453e"), 0, false)
 
 	one, err := kv.GetMix("jac", "testke")
 	assert.NoError(t, err)
 	assert.Equal(t, one, []byte("testk3563453e"))
 
-	kv.DelColMix("jac", "testkey1")
-	all := kv.AllByKVMix("jac")
+	kv.DelColMix("jac", "testkey1", false)
+	all := kv.AllByKVMix("jac", false)
 	assert.Equal(t, all[0].Value, []byte("testk3563453e"))
 
-	kv.DelMix("jac")
-	all = kv.AllByKVMix("jac")
+	kv.DelMix("jac", false)
+	all = kv.AllByKVMix("jac", false)
 	assert.Equal(t, len(all), 0)
 
 	type object struct {
 		Value int
 	}
 
-	kv.PutObjectMix("jjj", "test", &object{111}, 0)
+	kv.PutObjectMix("jjj", "test", &object{111}, 0, false)
 	var o object
-	err = kv.GetObjectMix("jjj", "test", &o)
+	err = kv.GetObjectMix("jjj", "test", &o, false)
 	assert.NoError(t, err)
 	assert.Equal(t, o.Value, 111)
 
-	all = kv.AllByObjectMix("jjj", o)
+	all = kv.AllByObjectMix("jjj", o, false)
 	assert.Equal(t, all[0].Object, &object{111})
 
 	kv.Drop()
@@ -70,11 +70,11 @@ func TestKvdb_IterStartWith(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("testkey1"), []byte("testkey1"), 0)
-	kv.Put([]byte("testkey22"), []byte("testkey22"), 0)
-	kv.Put([]byte("testke"), []byte("testke"), 0)
+	kv.Put([]byte("testkey1"), []byte("testkey1"), 0, false)
+	kv.Put([]byte("testkey22"), []byte("testkey22"), 0, false)
+	kv.Put([]byte("testke"), []byte("testke"), 0, false)
 
-	iter, err := kv.IterStartWith([]byte("testkey"))
+	iter, err := kv.IterStartWith([]byte("testkey"), false)
 	assert.NoError(t, err)
 	iter.Next()
 	assert.Equal(t, iter.Key(), []byte("testkey1"))
@@ -99,12 +99,12 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 	type object struct {
 		Value int
 	}
-	kv.PutObject([]byte("testkey1"), object{1}, 0)
-	kv.PutObject([]byte("testkey22"), object{2}, 0)
-	kv.PutObject([]byte("testke"), object{3}, 0)
+	kv.PutObject([]byte("testkey1"), object{1}, 0, false)
+	kv.PutObject([]byte("testkey22"), object{2}, 0, false)
+	kv.PutObject([]byte("testke"), object{3}, 0, false)
 
 	var o object
-	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o)
+	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o, false)
 	assert.NoError(t, err)
 	assert.Equal(t, all[0].Object, &object{1})
 
@@ -127,12 +127,12 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey1"), object{1}, 0)
-	kv.PutObject([]byte("testkey2"), object{2}, 0)
-	kv.PutObject([]byte("testke"), object{3}, 0)
+	kv.PutObject([]byte("testkey1"), object{1}, 0, false)
+	kv.PutObject([]byte("testkey2"), object{2}, 0, false)
+	kv.PutObject([]byte("testke"), object{3}, 0, false)
 
 	var o object
-	all, err := kv.KeyStartByObject([]byte("testkey"), o)
+	all, err := kv.KeyStartByObject([]byte("testkey"), o, false)
 	assert.NoError(t, err)
 	assert.Equal(t, all[1].Object, &object{2})
 
@@ -158,9 +158,9 @@ func TestKvdb_KeysByRegexp(t *testing.T) {
 		"foo/bar/#",
 		"foo/ytr/#"}
 	for _, v := range topics {
-		kv.Put([]byte(v), []byte(v), 0)
+		kv.Put([]byte(v), []byte(v), 0, false)
 	}
-	all, err := kv.RegexpKeys(`foo/((?:[^/#+]+/)*)`)
+	all, err := kv.RegexpKeys(`foo/((?:[^/#+]+/)*)`, false)
 	assert.NoError(t, err)
 	assert.Equal(t, all[0], "foo/#")
 	kv.Drop()
@@ -178,13 +178,13 @@ func TestKvdb_AllByKV(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("testkey"), []byte("test value1"), 0)
-	kv.Put([]byte("testkey1"), []byte("test value2"), 0)
+	kv.Put([]byte("testkey"), []byte("test value1"), 0, false)
+	kv.Put([]byte("testkey1"), []byte("test value2"), 0, false)
 
-	kv.Put([]byte("testkey4"), []byte("test value1"), 0)
-	kv.Put([]byte("testkey5"), []byte("test value2"), 0)
+	kv.Put([]byte("testkey4"), []byte("test value1"), 0, false)
+	kv.Put([]byte("testkey5"), []byte("test value2"), 0, false)
 
-	all := kv.AllByKV()
+	all := kv.AllByKV(false)
 	assert.Equal(t, all[0].Value, []byte("test value1"))
 
 	kv.Drop()
@@ -206,11 +206,11 @@ func TestKvdb_AllByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey"), object{1}, 0)
-	kv.PutObject([]byte("testkey1"), object{2}, 0)
+	kv.PutObject([]byte("testkey"), object{1}, 0, false)
+	kv.PutObject([]byte("testkey1"), object{2}, 0, false)
 
 	var o object
-	all := kv.AllByObject(o)
+	all := kv.AllByObject(o, false)
 	assert.Equal(t, all[0].Object, &object{1})
 
 	kv.Drop()
@@ -277,9 +277,9 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		}
 		items = append(items, item)
 	}
-	kv.BatPutOrDel(&items)
+	kv.BatPutOrDel(&items, false)
 	assert.NoError(t, err)
-	last, err := kv.Get([]byte("test9999"))
+	last, err := kv.Get([]byte("test9999"), false)
 	assert.NoError(t, err)
 	assert.Equal(t, last, []byte("bat values"))
 
@@ -292,8 +292,8 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		}
 		items = append(items, item)
 	}
-	kv.BatPutOrDel(&items)
-	_, err = kv.Get([]byte("test9999"))
+	kv.BatPutOrDel(&items, false)
+	_, err = kv.Get([]byte("test9999"), false)
 	assert.Equal(t, err.Error(), "leveldb: not found")
 
 	kv.Drop()
@@ -311,22 +311,22 @@ func TestSetTtlKvdb(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("hello1"), []byte("hello value"), 3)
-	kv.Put([]byte("hello2"), []byte("hello value2"), 10)
+	kv.Put([]byte("hello1"), []byte("hello value"), 3, false)
+	kv.Put([]byte("hello2"), []byte("hello value2"), 10, false)
 
-	kv.SetTTL([]byte("hello2"), 8)
+	kv.SetTTL([]byte("hello2"), 8, false)
 
 	f, err := kv.GetTTL([]byte("hello2"))
 	assert.NoError(t, err)
 	assert.Equal(t, int(f)+1, 8)
 
-	v, err := kv.Get([]byte("hello1"))
+	v, err := kv.Get([]byte("hello1"), false)
 	assert.NoError(t, err)
 	assert.Equal(t, v, []byte("hello value"))
 
 	time.Sleep(5 * time.Second)
 
-	_, err = kv.Get([]byte("hello1"))
+	_, err = kv.Get([]byte("hello1"), false)
 	if err == nil {
 		t.Error("ttl delete error")
 	}

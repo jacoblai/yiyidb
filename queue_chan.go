@@ -10,23 +10,22 @@ import (
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
 //FIFO
 type ChanQueue struct {
-	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
 	isOpen       bool
 	iteratorOpts *opt.ReadOptions
-	maxkv        int
-	mats         map[string]*mat
+	mats         *sync.Map //map[string]*mat
 }
 
-type mat struct {
-	mixName string
-	head    int64
-	tail    int64
+type Mat struct {
+	MixName string
+	Head    int64
+	Tail    int64
 }
 
 func OpenChanQueue(dataDir string, defaultKeyLen int) (*ChanQueue, error) {
@@ -35,9 +34,8 @@ func OpenChanQueue(dataDir string, defaultKeyLen int) (*ChanQueue, error) {
 		DataDir:      dataDir,
 		db:           &leveldb.DB{},
 		isOpen:       false,
-		mats:         make(map[string]*mat),
+		mats:         &sync.Map{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		maxkv:        512 * MB,
 	}
 
 	opts := &opt.Options{}
@@ -66,22 +64,22 @@ func (q *ChanQueue) init() error {
 	defer iter.Release()
 	for iter.Next() {
 		mixName := keyName(iter.Key())
-		if _, ok := q.mats[mixName]; !ok {
-			q.mats[mixName] = &mat{mixName: mixName, head: -1, tail: 0}
+		if _, ok := q.mats.Load(mixName); !ok {
+			q.mats.Store(mixName, &Mat{MixName: mixName, Head: -1, Tail: 0})
 		}
 	}
-	if len(q.mats) > 0 {
-		for k, v := range q.mats {
-			rg := util.BytesPrefix([]byte(k))
-			iter.Seek(rg.Start)
-			v.head = keyToID(iter.Key()) - 1
-			var lastid int64
-			for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
-				lastid = keyToID(iter.Key())
-			}
-			v.tail = lastid
+	q.mats.Range(func(k, v interface{}) bool {
+		ma := v.(*Mat)
+		rg := util.BytesPrefix(k.([]byte))
+		iter.Seek(rg.Start)
+		atomic.StoreInt64(&ma.Head, keyToID(iter.Key())-1)
+		var lastid int64
+		for ok := iter.Seek(rg.Start); ok && bytes.Compare(iter.Key(), rg.Limit) <= 0; ok = iter.Next() {
+			lastid = keyToID(iter.Key())
 		}
-	}
+		atomic.StoreInt64(&ma.Tail, lastid)
+		return true
+	})
 	return iter.Error()
 }
 
@@ -94,49 +92,46 @@ func (q *ChanQueue) EnqueueObject(chname string, value interface{}) (*QueueItem,
 }
 
 func (q *ChanQueue) Enqueue(chname string, value []byte) (*QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if len(value) > q.maxkv {
-		return nil, errors.New("out of len 512M")
-	}
-	if mt, ok := q.mats[chname]; ok {
-		if err := q.db.Put(idToKey(mt.mixName, mt.tail+1), value, nil); err != nil {
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		atomic.AddInt64(&ma.Tail, 1)
+		if err := q.db.Put(idToKey(ma.MixName, ma.Tail), value, nil); err != nil {
+			atomic.AddInt64(&ma.Tail, -1)
 			return nil, err
 		}
-		mt.tail++
-		return &QueueItem{ID: mt.tail, Key: idToKey(chname, mt.tail), Value: value}, nil
+		return &QueueItem{ID: ma.Tail, Key: idToKey(chname, ma.Tail), Value: value}, nil
 	} else {
 		item := &QueueItem{ID: 1, Key: idToKey(chname, 1), Value: value}
 		if err := q.db.Put(item.Key, item.Value, nil); err != nil {
 			return nil, err
 		}
-		q.mats[chname] = &mat{mixName: chname, tail: item.ID, head: 0}
+		q.mats.Store(chname, &Mat{MixName: chname, Tail: item.ID, Head: 0})
 		return item, nil
 	}
 }
 
 func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if mt, ok := q.mats[chname]; ok {
-		item, err := q.getItemByID(chname, mt.head+1)
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		atomic.AddInt64(&ma.Head, 1)
+		item, err := q.getItemByID(chname, ma.Head)
 		if err != nil {
 			return nil, err
 		}
 		if err := q.db.Delete(item.Key, nil); err != nil {
+			atomic.AddInt64(&ma.Head, -1)
 			return nil, err
 		}
-		mt.head++
 		//当队列取空后重置游标
-		if mt.head == mt.tail {
-			mt.head = 0
-			mt.tail = 0
+		if ma.Head == ma.Tail {
+			atomic.StoreInt64(&ma.Head, 0)
+			atomic.StoreInt64(&ma.Tail, 0)
 		}
 		return item, nil
 	} else {
@@ -145,59 +140,49 @@ func (q *ChanQueue) Dequeue(chname string) (*QueueItem, error) {
 }
 
 func (q *ChanQueue) GetMetal(chname string) (int64, int64) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return 0, 0
 	}
-	if mt, ok := q.mats[chname]; ok {
-		return mt.head, mt.tail
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		return ma.Head, ma.Tail
 	} else {
 		return 0, 0
 	}
 }
 
 func (q *ChanQueue) GetChans() ([]string, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
 	chans := make([]string, 0)
-	for k := range q.mats {
-		chans = append(chans, k)
-	}
+	q.mats.Range(func(k, _ interface{}) bool {
+		chans = append(chans, k.(string))
+		return true
+	})
 	return chans, nil
 }
 
 func (q *ChanQueue) Length(chname string) (int64, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return 0, ErrDBClosed
 	}
-	if len(chname) > q.maxkv {
-		return 0, errors.New("out of len")
-	}
-	if mt, ok := q.mats[chname]; ok {
-		return mt.tail - mt.head, nil
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		return ma.Tail - ma.Head, nil
 	} else {
 		return 0, errors.New("ch not ext")
 	}
 }
 
 func (q *ChanQueue) Clear(chname string) error {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return ErrDBClosed
 	}
-	if len(chname) > q.maxkv {
-		return errors.New("out of len")
-	}
-	if mt, ok := q.mats[chname]; ok {
-		mt.head = 0
-		mt.tail = 0
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		atomic.StoreInt64(&ma.Head, 0)
+		atomic.StoreInt64(&ma.Tail, 0)
 	} else {
 		return errors.New("ch not ext")
 	}
@@ -215,13 +200,12 @@ func (q *ChanQueue) Clear(chname string) error {
 }
 
 func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if mt, ok := q.mats[chname]; ok {
-		item, err := q.getItemByID(chname, mt.head+1)
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		item, err := q.getItemByID(chname, ma.Head+1)
 		if err != nil {
 			return nil, err
 		}
@@ -232,17 +216,13 @@ func (q *ChanQueue) Peek(chname string) (*QueueItem, error) {
 }
 
 func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if len(chname) > q.maxkv {
-		return nil, errors.New("out of len")
-	}
-	if mt, ok := q.mats[chname]; ok {
-		mt.head = 0
-		mt.tail = 0
+	if mt, ok := q.mats.Load(chname); ok {
+		ma := mt.(*Mat)
+		atomic.StoreInt64(&ma.Head, 0)
+		atomic.StoreInt64(&ma.Tail, 0)
 	} else {
 		return nil, errors.New("ch not ext")
 	}
@@ -268,10 +248,14 @@ func (q *ChanQueue) PeekStart(chname string) ([]QueueItem, error) {
 }
 
 func (q *ChanQueue) getItemByID(chname string, id int64) (*QueueItem, error) {
-	hq := q.mats[chname]
-	if hq.tail-hq.head == 0 {
+	mt, ok := q.mats.Load(chname)
+	if !ok {
+		return nil, leveldb.ErrNotFound
+	}
+	ma := mt.(*Mat)
+	if ma.Tail-ma.Head < 0 {
 		return nil, ErrEmpty
-	} else if id <= hq.head || id > hq.tail {
+	} else if id < ma.Head || id > ma.Tail {
 		return nil, ErrOutOfBounds
 	}
 	var err error
@@ -288,8 +272,6 @@ func (q *ChanQueue) Drop() {
 }
 
 func (q *ChanQueue) Close() error {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return ErrDBClosed
 	}

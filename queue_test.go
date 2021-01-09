@@ -27,8 +27,6 @@ func TestQueueClose(t *testing.T) {
 	_, err = q.Dequeue()
 	assert.Equal(t, err, ErrDBClosed)
 
-	assert.Equal(t, int(q.Length()), 0)
-
 	q.Drop()
 }
 
@@ -446,8 +444,10 @@ func BenchmarkQueueDequeue(b *testing.B) {
 				b.Error(err)
 			} else {
 				var obj object
-				item.ToObject(&obj)
-				b.Log(obj.aaa)
+				err = item.ToObject(&obj)
+				if err != nil {
+					b.Error(err)
+				}
 			}
 		}
 	})

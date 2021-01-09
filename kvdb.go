@@ -18,16 +18,15 @@ import (
 )
 
 type Kvdb struct {
-	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
 	ttldb        *ttlRunner
 	enableTtl    bool
 	enableChan   bool
-	mats         map[string]*mat
-	maxkv        int
+	mats         *sync.Map //map[string]*mat
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
+	tran         *leveldb.Transaction
 }
 
 type KvItem struct {
@@ -45,8 +44,7 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		enableTtl:    nttl,
 		enableChan:   nChan,
-		mats:         make(map[string]*mat),
-		maxkv:        256 * MB,
+		mats:         &sync.Map{},
 	}
 
 	bloom := Precision(float64(defaultKeyLen)*1.44, 0, true)
@@ -80,8 +78,6 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 		go kv.ttldb.Run()
 	}
 
-	kv.init()
-
 	return kv, nil
 }
 
@@ -105,9 +101,6 @@ func (k *Kvdb) onExp(key, value []byte) {
 }
 
 func (k *Kvdb) NilTTL(key []byte) error {
-	if len(key) > k.maxkv {
-		return errors.New("out of len")
-	}
 	if k.enableTtl && k.ttldb.Exists(key) {
 		return k.ttldb.SetTTL(-1, key)
 	} else {
@@ -115,11 +108,8 @@ func (k *Kvdb) NilTTL(key []byte) error {
 	}
 }
 
-func (k *Kvdb) SetTTL(key []byte, ttl int) error {
-	if len(key) > k.maxkv {
-		return errors.New("out of len")
-	}
-	if k.enableTtl && k.Exists(key) {
+func (k *Kvdb) SetTTL(key []byte, ttl int, tran bool) error {
+	if k.enableTtl && k.Exists(key, tran) {
 		if ttl > 0 {
 			return k.ttldb.SetTTL(ttl, key)
 		} else {
@@ -131,9 +121,6 @@ func (k *Kvdb) SetTTL(key []byte, ttl int) error {
 }
 
 func (k *Kvdb) GetTTL(key []byte) (float64, error) {
-	if len(key) > k.maxkv {
-		return 0, errors.New("out of len")
-	}
 	if k.enableTtl {
 		return k.ttldb.GetTTL(key)
 	} else {
@@ -141,27 +128,34 @@ func (k *Kvdb) GetTTL(key []byte) (float64, error) {
 	}
 }
 
-func (k *Kvdb) Exists(key []byte) bool {
-	if len(key) > k.maxkv {
-		return false
+func (k *Kvdb) Exists(key []byte, tran bool) bool {
+	if tran && k.tran != nil {
+		ok, _ := k.tran.Has(key, k.iteratorOpts)
+		return ok
+	} else {
+		ok, _ := k.db.Has(key, k.iteratorOpts)
+		return ok
 	}
-	ok, _ := k.db.Has(key, k.iteratorOpts)
-	return ok
 }
 
-func (k *Kvdb) Get(key []byte) ([]byte, error) {
-	if len(key) > k.maxkv {
-		return nil, errors.New("out of len")
+func (k *Kvdb) Get(key []byte, tran bool) ([]byte, error) {
+	if tran && k.tran != nil {
+		data, err := k.tran.Get(key, nil)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	} else {
+		data, err := k.db.Get(key, nil)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
 	}
-	data, err := k.db.Get(key, nil)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
-func (k *Kvdb) GetObject(key []byte, value interface{}) error {
-	data, err := k.Get(key)
+func (k *Kvdb) GetObject(key []byte, value interface{}, tran bool) error {
+	data, err := k.Get(key, tran)
 	if err != nil {
 		return err
 	}
@@ -176,8 +170,8 @@ func (k *Kvdb) GetObject(key []byte, value interface{}) error {
 	return nil
 }
 
-func (k *Kvdb) GetObjectFirst(value interface{}) ([]byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetObjectFirst(value interface{}, tran bool) ([]byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.First() {
 		return nil, errors.New("last op error")
@@ -193,8 +187,8 @@ func (k *Kvdb) GetObjectFirst(value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) GetObjectLast(value interface{}) ([]byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetObjectLast(value interface{}, tran bool) ([]byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.Last() {
 		return nil, errors.New("last op error")
@@ -210,8 +204,8 @@ func (k *Kvdb) GetObjectLast(value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) GetJson(key []byte, value interface{}) error {
-	data, err := k.Get(key)
+func (k *Kvdb) GetJson(key []byte, value interface{}, tran bool) error {
+	data, err := k.Get(key, tran)
 	if err != nil {
 		return err
 	}
@@ -226,8 +220,8 @@ func (k *Kvdb) GetJson(key []byte, value interface{}) error {
 	return nil
 }
 
-func (k *Kvdb) GetFirst() ([]byte, []byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetFirst(tran bool) ([]byte, []byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.First() {
 		return nil, nil, errors.New("op error")
@@ -235,8 +229,8 @@ func (k *Kvdb) GetFirst() ([]byte, []byte, error) {
 	return iter.Key(), iter.Value(), nil
 }
 
-func (k *Kvdb) GetLast() ([]byte, []byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetLast(tran bool) ([]byte, []byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.Last() {
 		return nil, nil, errors.New("op error")
@@ -244,8 +238,8 @@ func (k *Kvdb) GetLast() ([]byte, []byte, error) {
 	return iter.Key(), iter.Value(), nil
 }
 
-func (k *Kvdb) GetJsonFirst(value interface{}) ([]byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetJsonFirst(value interface{}, tran bool) ([]byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.First() {
 		return nil, errors.New("op error")
@@ -261,8 +255,8 @@ func (k *Kvdb) GetJsonFirst(value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) GetJsonLast(value interface{}) ([]byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetJsonLast(value interface{}, tran bool) ([]byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.Last() {
 		return nil, errors.New("op error")
@@ -278,8 +272,8 @@ func (k *Kvdb) GetJsonLast(value interface{}) ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) GetLastKey() ([]byte, error) {
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) GetLastKey(tran bool) ([]byte, error) {
+	iter := k.newIter(nil, tran)
 	defer iter.Release()
 	if !iter.Last() {
 		return nil, errors.New("last op error")
@@ -287,13 +281,17 @@ func (k *Kvdb) GetLastKey() ([]byte, error) {
 	return iter.Key(), nil
 }
 
-func (k *Kvdb) Put(key, value []byte, ttl int) error {
-	if len(key) > k.maxkv || len(value) > k.maxkv {
-		return errors.New("out of len")
-	}
-	err := k.db.Put(key, value, nil)
-	if err != nil {
-		return err
+func (k *Kvdb) Put(key, value []byte, ttl int, tran bool) error {
+	if tran && k.tran != nil {
+		err := k.tran.Put(key, value, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := k.db.Put(key, value, nil)
+		if err != nil {
+			return err
+		}
 	}
 	if k.enableTtl && ttl > 0 {
 		k.ttldb.SetTTL(ttl, key)
@@ -301,11 +299,30 @@ func (k *Kvdb) Put(key, value []byte, ttl int) error {
 	return nil
 }
 
-func (k *Kvdb) OpenTransaction() (*leveldb.Transaction, error) {
-	return k.db.OpenTransaction()
+func (k *Kvdb) OpenTransaction() error {
+	tran, err := k.db.OpenTransaction()
+	if err != nil {
+		return err
+	}
+	k.tran = tran
+	return nil
 }
 
-func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
+func (k *Kvdb) Commit() error {
+	err := k.tran.Commit()
+	if err != nil {
+		return err
+	}
+	k.tran = nil
+	return nil
+}
+
+func (k *Kvdb) Discard() {
+	k.tran.Discard()
+	k.tran = nil
+}
+
+func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int, tran bool) error {
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -314,10 +331,10 @@ func (k *Kvdb) PutObject(key []byte, value interface{}, ttl int) error {
 	if err != nil {
 		return err
 	}
-	return k.Put(key, msg, ttl)
+	return k.Put(key, msg, ttl, tran)
 }
 
-func (k *Kvdb) PutJson(key []byte, value interface{}, ttl int) error {
+func (k *Kvdb) PutJson(key []byte, value interface{}, ttl int, tran bool) error {
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -326,60 +343,72 @@ func (k *Kvdb) PutJson(key []byte, value interface{}, ttl int) error {
 	if err != nil {
 		return err
 	}
-	return k.Put(key, msg, ttl)
+	return k.Put(key, msg, ttl, tran)
 }
 
-func (k *Kvdb) BatPutOrDel(items *[]BatItem) error {
+func (k *Kvdb) BatPutOrDel(items *[]BatItem, tran bool) error {
 	batch := new(leveldb.Batch)
 	for _, v := range *items {
 		switch v.Op {
 		case "put":
-			if len(v.Key) > k.maxkv || len(v.Value) > k.maxkv {
-				return errors.New("out of len")
-			}
 			batch.Put(v.Key, v.Value)
 			if k.enableTtl && v.Ttl > 0 {
 				k.ttldb.SetTTL(v.Ttl, v.Key)
 			}
 		case "del":
-			if len(v.Key) > k.maxkv {
-				return errors.New("out of len")
-			}
 			batch.Delete(v.Key)
 			if k.enableTtl {
 				k.ttldb.DelTTL(v.Key)
 			}
 		}
 	}
-	err := k.db.Write(batch, nil)
-	if err != nil {
-		return err
+	if tran && k.tran != nil {
+		err := k.tran.Write(batch, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := k.db.Write(batch, nil)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (k *Kvdb) Del(key []byte) error {
-	if len(key) > k.maxkv {
-		return errors.New("out of len")
-	}
-	err := k.db.Delete(key, nil)
-	if err != nil {
-		return err
+func (k *Kvdb) Del(key []byte, tran bool) error {
+	if tran && k.tran != nil {
+		err := k.tran.Delete(key, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := k.db.Delete(key, nil)
+		if err != nil {
+			return err
+		}
 	}
 	if k.enableTtl {
 		k.ttldb.DelTTL(key)
 	}
-	k.delchan(key)
 	return nil
 }
 
-func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
+func (k *Kvdb) newIter(slice *util.Range, tran bool) iterator.Iterator {
+	if tran && k.tran != nil {
+		return k.tran.NewIterator(slice, k.iteratorOpts)
+	} else {
+		return k.db.NewIterator(slice, k.iteratorOpts)
+	}
+}
+
+func (k *Kvdb) AllByObject(Ntype interface{}, tran bool) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)
@@ -395,13 +424,13 @@ func (k *Kvdb) AllByObject(Ntype interface{}) []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllByJson(Ntype interface{}) []KvItem {
+func (k *Kvdb) AllByJson(Ntype interface{}, tran bool) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := ffjson.Unmarshal(iter.Value(), t)
@@ -417,9 +446,9 @@ func (k *Kvdb) AllByJson(Ntype interface{}) []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllByKV() []KvItem {
+func (k *Kvdb) AllByKV(tran bool) []KvItem {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
@@ -432,9 +461,9 @@ func (k *Kvdb) AllByKV() []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllKeys() []string {
+func (k *Kvdb) AllKeys(tran bool) []string {
 	var keys []string
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
@@ -442,13 +471,13 @@ func (k *Kvdb) AllKeys() []string {
 	return keys
 }
 
-func (k *Kvdb) RegexpKeys(exp string) ([]string, error) {
+func (k *Kvdb) RegexpKeys(exp string, tran bool) ([]string, error) {
 	regx, err := regexp.Compile(exp)
 	if err != nil {
 		return nil, err
 	}
 	var keys []string
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
 			keys = append(keys, string(iter.Key()))
@@ -458,13 +487,13 @@ func (k *Kvdb) RegexpKeys(exp string) ([]string, error) {
 	return keys, nil
 }
 
-func (k *Kvdb) RegexpByKV(exp string) ([]KvItem, error) {
+func (k *Kvdb) RegexpByKV(exp string, tran bool) ([]KvItem, error) {
 	regx, err := regexp.Compile(exp)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
 			item := KvItem{}
@@ -479,9 +508,9 @@ func (k *Kvdb) RegexpByKV(exp string) ([]KvItem, error) {
 	return result, nil
 }
 
-func (k *Kvdb) KeyStartDels(key []byte) error {
+func (k *Kvdb) KeyStartDels(key []byte, tran bool) error {
 	batch := new(leveldb.Batch)
-	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(key), tran)
 	for iter.Next() {
 		batch.Delete(iter.Key())
 	}
@@ -493,9 +522,9 @@ func (k *Kvdb) KeyStartDels(key []byte) error {
 	return nil
 }
 
-func (k *Kvdb) KeyStartKeys(key []byte) []string {
+func (k *Kvdb) KeyStartKeys(key []byte, tran bool) []string {
 	var keys []string
-	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(key), tran)
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
 	}
@@ -503,27 +532,29 @@ func (k *Kvdb) KeyStartKeys(key []byte) []string {
 	return keys
 }
 
-func (k *Kvdb) Iter() iterator.Iterator {
-	return k.db.NewIterator(nil, k.iteratorOpts)
+func (k *Kvdb) Iter(tran bool) iterator.Iterator {
+	if tran && k.tran != nil {
+		return k.tran.NewIterator(nil, k.iteratorOpts)
+	} else {
+		return k.db.NewIterator(nil, k.iteratorOpts)
+	}
 }
 
-func (k *Kvdb) IterStartWith(key []byte) (iterator.Iterator, error) {
-	if len(key) > k.maxkv {
-		return nil, errors.New("out of len")
+func (k *Kvdb) IterStartWith(key []byte, tran bool) (iterator.Iterator, error) {
+	if tran && k.tran != nil {
+		return k.tran.NewIterator(util.BytesPrefix(key), k.iteratorOpts), nil
+	} else {
+		return k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts), nil
 	}
-	return k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts), nil
 }
 
 func (k *Kvdb) IterRelease(iter iterator.Iterator) {
 	iter.Release()
 }
 
-func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
-	if len(key) > k.maxkv {
-		return nil, errors.New("out of len")
-	}
+func (k *Kvdb) KeyStart(key []byte, tran bool) ([]KvItem, error) {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(key), tran)
 	for iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
@@ -536,16 +567,13 @@ func (k *Kvdb) KeyStart(key []byte) ([]KvItem, error) {
 	return result, nil
 }
 
-func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error) {
-	if len(key) > k.maxkv {
-		return nil, errors.New("out of len")
-	}
+func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}, tran bool) ([]KvItem, error) {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(util.BytesPrefix(key), k.iteratorOpts)
+	iter := k.newIter(util.BytesPrefix(key), tran)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)
@@ -561,7 +589,7 @@ func (k *Kvdb) KeyStartByObject(key []byte, Ntype interface{}) ([]KvItem, error)
 	return result, nil
 }
 
-func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
+func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}, tran bool) ([]KvItem, error) {
 	regx, err := regexp.Compile(exp)
 	if err != nil {
 		return nil, err
@@ -571,7 +599,7 @@ func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		if regx.Match(iter.Key()) {
 			t := reflect.New(nt).Interface()
@@ -589,12 +617,9 @@ func (k *Kvdb) RegexpByObject(exp string, Ntype interface{}) ([]KvItem, error) {
 	return result, nil
 }
 
-func (k *Kvdb) KeyRange(min, max []byte) ([]KvItem, error) {
-	if len(min) > k.maxkv || len(max) > k.maxkv {
-		return nil, errors.New("out of len")
-	}
+func (k *Kvdb) KeyRange(min, max []byte, tran bool) ([]KvItem, error) {
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		item := KvItem{}
 		item.Key = make([]byte, len(iter.Key()))
@@ -607,16 +632,13 @@ func (k *Kvdb) KeyRange(min, max []byte) ([]KvItem, error) {
 	return result, nil
 }
 
-func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}) ([]KvItem, error) {
-	if len(min) > k.maxkv || len(max) > k.maxkv {
-		return nil, errors.New("out of len")
-	}
+func (k *Kvdb) KeyRangeByObject(min, max []byte, Ntype interface{}, tran bool) ([]KvItem, error) {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.db.NewIterator(nil, k.iteratorOpts)
+	iter := k.newIter(nil, tran)
 	for ok := iter.Seek(min); ok && bytes.Compare(iter.Key(), max) <= 0; ok = iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)

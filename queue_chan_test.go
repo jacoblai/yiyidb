@@ -16,17 +16,17 @@ func TestChanQueue_EnqueueObject(t *testing.T) {
 	}
 	defer q.Close()
 
-	type object struct {
+	type Object struct {
 		Value []byte
 		Key   string
 	}
 
-	msg := &object{}
+	msg := &Object{}
 	msg.Key = "dkfjdkf"
 	msg.Value = []byte("ddddd")
 
 	for i := 1; i <= 5; i++ {
-		msg := object{
+		msg := Object{
 			Key:   "dkfjdkf" + strconv.Itoa(i),
 			Value: []byte("ddddd" + strconv.Itoa(i)),
 		}
@@ -36,7 +36,7 @@ func TestChanQueue_EnqueueObject(t *testing.T) {
 
 	vals, err := q.PeekStart("jac")
 	assert.NoError(t, err)
-	remsg := object{}
+	remsg := Object{}
 	err = vals[0].ToObject(&remsg)
 	assert.NoError(t, err)
 	assert.Equal(t, remsg.Value, []byte("ddddd1"))
@@ -63,7 +63,7 @@ func TestQueueChan_Enqueue(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		_, err := q.Dequeue("jac")
+		_, err = q.Dequeue("jac")
 		assert.NoError(t, err)
 	}
 

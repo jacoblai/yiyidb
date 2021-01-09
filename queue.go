@@ -1,25 +1,22 @@
 package yiyidb
 
 import (
-	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"gopkg.in/vmihailenco/msgpack.v2"
 	"os"
-	"sync"
+	"sync/atomic"
 )
 
 //FIFO
 type Queue struct {
-	sync.RWMutex
 	DataDir      string
 	db           *leveldb.DB
 	head         int64
 	tail         int64
 	isOpen       bool
 	iteratorOpts *opt.ReadOptions
-	maxkv        int
 }
 
 func OpenQueue(dataDir string) (*Queue, error) {
@@ -32,7 +29,6 @@ func OpenQueue(dataDir string) (*Queue, error) {
 		tail:         0,
 		isOpen:       false,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		maxkv:        512 * MB,
 	}
 
 	opts := &opt.Options{}
@@ -57,26 +53,23 @@ func OpenQueue(dataDir string) (*Queue, error) {
 }
 
 func (q *Queue) EnqueueBatch(value [][]byte) error {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return ErrDBClosed
 	}
 
 	batch := new(leveldb.Batch)
 	for _, v := range value {
-		if len(v) > q.maxkv {
-			return errors.New("out of len 512M")
-		}
+		atomic.AddInt64(&q.tail, 1)
+		tail := atomic.LoadInt64(&q.tail)
 		item := &QueueItem{
-			ID:    q.tail + 1,
-			Key:   IdToKeyPure(q.tail + 1),
+			ID:    tail,
+			Key:   IdToKeyPure(tail),
 			Value: v,
 		}
 		batch.Put(item.Key, item.Value)
-		q.tail++
 	}
 	if err := q.db.Write(batch, nil); err != nil {
+		atomic.AddInt64(&q.tail, -int64(len(value)))
 		return err
 	}
 
@@ -84,23 +77,20 @@ func (q *Queue) EnqueueBatch(value [][]byte) error {
 }
 
 func (q *Queue) Enqueue(value []byte) (*QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if len(value) > q.maxkv {
-		return nil, errors.New("out of len 512M")
-	}
+	atomic.AddInt64(&q.tail, 1)
+	tail := atomic.LoadInt64(&q.tail)
 	item := &QueueItem{
-		ID:    q.tail + 1,
-		Key:   IdToKeyPure(q.tail + 1),
+		ID:    tail,
+		Key:   IdToKeyPure(tail),
 		Value: value,
 	}
 	if err := q.db.Put(item.Key, item.Value, nil); err != nil {
+		atomic.AddInt64(&q.tail, -1)
 		return nil, err
 	}
-	q.tail++
 	return item, nil
 }
 
@@ -117,48 +107,45 @@ func (q *Queue) EnqueueObject(value interface{}) (*QueueItem, error) {
 }
 
 func (q *Queue) Dequeue() (*QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	item, err := q.getItemByID(q.head + 1)
+	head := atomic.LoadInt64(&q.head)
+	item, err := q.getItemByID(head + 1)
 	if err != nil {
 		return nil, err
 	}
-	if err := q.db.Delete(item.Key, nil); err != nil {
+	if err = q.db.Delete(item.Key, nil); err != nil {
 		return nil, err
 	}
-	q.head++
+	atomic.AddInt64(&q.head, 1)
+	head = atomic.LoadInt64(&q.head)
+	tail := atomic.LoadInt64(&q.tail)
 	//当队列取空后重置游标
-	if q.head == q.tail {
-		q.head = 0
-		q.tail = 0
+	if head == tail {
+		atomic.StoreInt64(&q.head, 0)
+		atomic.StoreInt64(&q.tail, 0)
 	}
 	return item, nil
 }
 
 func (q *Queue) Peek() (*QueueItem, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	return q.getItemByID(q.head + 1)
+	head := atomic.LoadInt64(&q.head)
+	return q.getItemByID(head + 1)
 }
 
 func (q *Queue) PeekByOffset(offset int64) (*QueueItem, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	return q.getItemByID(q.head + offset + 1)
+	head := atomic.LoadInt64(&q.head)
+	return q.getItemByID(head + offset + 1)
 }
 
 func (q *Queue) PeekByID(id int64) (*QueueItem, error) {
-	q.RLock()
-	defer q.RUnlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
@@ -166,12 +153,12 @@ func (q *Queue) PeekByID(id int64) (*QueueItem, error) {
 }
 
 func (q *Queue) Update(id int64, newValue []byte) (*QueueItem, error) {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return nil, ErrDBClosed
 	}
-	if id <= q.head || id > q.tail {
+	head := atomic.LoadInt64(&q.head)
+	tail := atomic.LoadInt64(&q.tail)
+	if id <= head || id > tail {
 		return nil, ErrOutOfBounds
 	}
 	item := &QueueItem{
@@ -199,32 +186,30 @@ func (q *Queue) UpdateObject(id int64, newValue interface{}) (*QueueItem, error)
 }
 
 func (q *Queue) Length() int64 {
-	q.RLock()
-	defer q.RUnlock()
-	return q.tail - q.head
+	head := atomic.LoadInt64(&q.head)
+	tail := atomic.LoadInt64(&q.tail)
+	return tail - head
 }
 
 func (q *Queue) Close() {
-	q.Lock()
-	defer q.Unlock()
 	if !q.isOpen {
 		return
 	}
-	q.head = 0
-	q.tail = 0
-	q.db.Close()
 	q.isOpen = false
+	_ = q.db.Close()
 }
 
 func (q *Queue) Drop() {
 	q.Close()
-	os.RemoveAll(q.DataDir)
+	_ = os.RemoveAll(q.DataDir)
 }
 
 func (q *Queue) getItemByID(id int64) (*QueueItem, error) {
-	if q.tail-q.head == 0 {
+	tail := atomic.LoadInt64(&q.tail)
+	head := atomic.LoadInt64(&q.head)
+	if tail-head == 0 {
 		return nil, ErrEmpty
-	} else if id <= q.head || id > q.tail {
+	} else if id <= head || id > tail {
 		return nil, ErrOutOfBounds
 	}
 	var err error
@@ -236,19 +221,17 @@ func (q *Queue) getItemByID(id int64) (*QueueItem, error) {
 }
 
 func (q *Queue) init() error {
-	q.Lock()
-	defer q.Unlock()
 	iter := q.db.NewIterator(nil, q.iteratorOpts)
 	defer iter.Release()
 	if ok := iter.First(); ok {
-		q.head = KeyToIDPure(iter.Key()) - 1
+		atomic.StoreInt64(&q.head, KeyToIDPure(iter.Key())-1)
 	} else {
-		q.head = 0
+		atomic.StoreInt64(&q.head, 0)
 	}
 	if ok := iter.Last(); ok {
-		q.tail = KeyToIDPure(iter.Key())
+		atomic.StoreInt64(&q.tail, KeyToIDPure(iter.Key()))
 	} else {
-		q.tail = 0
+		atomic.StoreInt64(&q.tail, 0)
 	}
 	return iter.Error()
 }

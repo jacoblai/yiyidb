@@ -21,15 +21,15 @@ func TestKvdb_AllByKVChan(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.PutChan("jac", []byte("yudfuud dekjrker"), 0)
-	kv.PutChan("jac", []byte("dfdfseeee ee value2"), 0)
+	kv.PutChan("jac", []byte("yudfuud dekjrker"), 0, false)
+	kv.PutChan("jac", []byte("dfdfseeee ee value2"), 0, false)
 
-	kv.PutChan("yum", []byte("test value1"), 0)
-	kv.PutChan("yum", []byte("test value2"), 0)
+	kv.PutChan("yum", []byte("test value1"), 0, false)
+	kv.PutChan("yum", []byte("test value2"), 0, false)
 
-	kv.Del(idToKey("jac", 1))
+	kv.Del(idToKey("jac", 1), false)
 
-	all := kv.AllByKVChan("yum")
+	all := kv.AllByKVChan("yum", false)
 	assert.Equal(t, all[0].Value, []byte("test value1"))
 
 	kv.Drop()
