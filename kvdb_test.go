@@ -24,33 +24,33 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.PutMix("jac", "testkey1", []byte("testkey1"), 0, false)
-	kv.PutMix("jac", "testkey22", []byte("testkey22"), 0, false)
-	kv.PutMix("jac", "testke", []byte("testk3563453e"), 0, false)
+	kv.PutMix("jac", "testkey1", []byte("testkey1"), 0, nil)
+	kv.PutMix("jac", "testkey22", []byte("testkey22"), 0, nil)
+	kv.PutMix("jac", "testke", []byte("testk3563453e"), 0, nil)
 
-	one, err := kv.GetMix("jac", "testke")
+	one, err := kv.GetMix("jac", "testke", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, one, []byte("testk3563453e"))
 
-	kv.DelColMix("jac", "testkey1", false)
-	all := kv.AllByKVMix("jac", false)
+	kv.DelColMix("jac", "testkey1", nil)
+	all := kv.AllByKVMix("jac", nil)
 	assert.Equal(t, all[0].Value, []byte("testk3563453e"))
 
-	kv.DelMix("jac", false)
-	all = kv.AllByKVMix("jac", false)
+	kv.DelMix("jac", nil)
+	all = kv.AllByKVMix("jac", nil)
 	assert.Equal(t, len(all), 0)
 
 	type object struct {
 		Value int
 	}
 
-	kv.PutObjectMix("jjj", "test", &object{111}, 0, false)
+	kv.PutObjectMix("jjj", "test", &object{111}, 0, nil)
 	var o object
-	err = kv.GetObjectMix("jjj", "test", &o, false)
+	err = kv.GetObjectMix("jjj", "test", &o, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, o.Value, 111)
 
-	all = kv.AllByObjectMix("jjj", o, false)
+	all = kv.AllByObjectMix("jjj", o, nil)
 	assert.Equal(t, all[0].Object, &object{111})
 
 	kv.Drop()
@@ -70,11 +70,11 @@ func TestKvdb_IterStartWith(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("testkey1"), []byte("testkey1"), 0, false)
-	kv.Put([]byte("testkey22"), []byte("testkey22"), 0, false)
-	kv.Put([]byte("testke"), []byte("testke"), 0, false)
+	kv.Put([]byte("testkey1"), []byte("testkey1"), 0, nil)
+	kv.Put([]byte("testkey22"), []byte("testkey22"), 0, nil)
+	kv.Put([]byte("testke"), []byte("testke"), 0, nil)
 
-	iter, err := kv.IterStartWith([]byte("testkey"), false)
+	iter, err := kv.IterStartWith([]byte("testkey"), nil)
 	assert.NoError(t, err)
 	iter.Next()
 	assert.Equal(t, iter.Key(), []byte("testkey1"))
@@ -99,12 +99,12 @@ func TestKvdb_KeyRangeByObject(t *testing.T) {
 	type object struct {
 		Value int
 	}
-	kv.PutObject([]byte("testkey1"), object{1}, 0, false)
-	kv.PutObject([]byte("testkey22"), object{2}, 0, false)
-	kv.PutObject([]byte("testke"), object{3}, 0, false)
+	kv.PutObject([]byte("testkey1"), object{1}, 0, nil)
+	kv.PutObject([]byte("testkey22"), object{2}, 0, nil)
+	kv.PutObject([]byte("testke"), object{3}, 0, nil)
 
 	var o object
-	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o, false)
+	all, err := kv.KeyRangeByObject([]byte("testkey"), []byte("testkey25"), o, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, all[0].Object, &object{1})
 
@@ -127,12 +127,12 @@ func TestKvdb_KeyStartByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey1"), object{1}, 0, false)
-	kv.PutObject([]byte("testkey2"), object{2}, 0, false)
-	kv.PutObject([]byte("testke"), object{3}, 0, false)
+	kv.PutObject([]byte("testkey1"), object{1}, 0, nil)
+	kv.PutObject([]byte("testkey2"), object{2}, 0, nil)
+	kv.PutObject([]byte("testke"), object{3}, 0, nil)
 
 	var o object
-	all, err := kv.KeyStartByObject([]byte("testkey"), o, false)
+	all, err := kv.KeyStartByObject([]byte("testkey"), o, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, all[1].Object, &object{2})
 
@@ -158,9 +158,9 @@ func TestKvdb_KeysByRegexp(t *testing.T) {
 		"foo/bar/#",
 		"foo/ytr/#"}
 	for _, v := range topics {
-		kv.Put([]byte(v), []byte(v), 0, false)
+		kv.Put([]byte(v), []byte(v), 0, nil)
 	}
-	all, err := kv.RegexpKeys(`foo/((?:[^/#+]+/)*)`, false)
+	all, err := kv.RegexpKeys(`foo/((?:[^/#+]+/)*)`, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, all[0], "foo/#")
 	kv.Drop()
@@ -178,13 +178,13 @@ func TestKvdb_AllByKV(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("testkey"), []byte("test value1"), 0, false)
-	kv.Put([]byte("testkey1"), []byte("test value2"), 0, false)
+	kv.Put([]byte("testkey"), []byte("test value1"), 0, nil)
+	kv.Put([]byte("testkey1"), []byte("test value2"), 0, nil)
 
-	kv.Put([]byte("testkey4"), []byte("test value1"), 0, false)
-	kv.Put([]byte("testkey5"), []byte("test value2"), 0, false)
+	kv.Put([]byte("testkey4"), []byte("test value1"), 0, nil)
+	kv.Put([]byte("testkey5"), []byte("test value2"), 0, nil)
 
-	all := kv.AllByKV(false)
+	all := kv.AllByKV(nil)
 	assert.Equal(t, all[0].Value, []byte("test value1"))
 
 	kv.Drop()
@@ -206,11 +206,11 @@ func TestKvdb_AllByObject(t *testing.T) {
 		Value int
 	}
 
-	kv.PutObject([]byte("testkey"), object{1}, 0, false)
-	kv.PutObject([]byte("testkey1"), object{2}, 0, false)
+	kv.PutObject([]byte("testkey"), object{1}, 0, nil)
+	kv.PutObject([]byte("testkey1"), object{2}, 0, nil)
 
 	var o object
-	all := kv.AllByObject(o, false)
+	all := kv.AllByObject(o, nil)
 	assert.Equal(t, all[0].Object, &object{1})
 
 	kv.Drop()
@@ -235,7 +235,7 @@ func TestKvdb_Drop(t *testing.T) {
 //		panic(err)
 //	}
 //	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
-//	kv, err := OpenKvdb(dir, false, false, 10)
+//	kv, err := OpenKvdb(dir, nil, nil, 10)
 //	if err != nil {
 //		panic(err)
 //	}
@@ -277,9 +277,9 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		}
 		items = append(items, item)
 	}
-	kv.BatPutOrDel(&items, false)
+	kv.BatPutOrDel(&items, nil)
 	assert.NoError(t, err)
-	last, err := kv.Get([]byte("test9999"), false)
+	last, err := kv.Get([]byte("test9999"), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, last, []byte("bat values"))
 
@@ -292,8 +292,8 @@ func TestKvdb_BatPutOrDel(t *testing.T) {
 		}
 		items = append(items, item)
 	}
-	kv.BatPutOrDel(&items, false)
-	_, err = kv.Get([]byte("test9999"), false)
+	kv.BatPutOrDel(&items, nil)
+	_, err = kv.Get([]byte("test9999"), nil)
 	assert.Equal(t, err.Error(), "leveldb: not found")
 
 	kv.Drop()
@@ -311,22 +311,22 @@ func TestSetTtlKvdb(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("hello1"), []byte("hello value"), 3, false)
-	kv.Put([]byte("hello2"), []byte("hello value2"), 10, false)
+	kv.Put([]byte("hello1"), []byte("hello value"), 3, nil)
+	kv.Put([]byte("hello2"), []byte("hello value2"), 10, nil)
 
-	kv.SetTTL([]byte("hello2"), 8, false)
+	kv.SetTTL([]byte("hello2"), 8, nil)
 
 	f, err := kv.GetTTL([]byte("hello2"))
 	assert.NoError(t, err)
 	assert.Equal(t, int(f)+1, 8)
 
-	v, err := kv.Get([]byte("hello1"), false)
+	v, err := kv.Get([]byte("hello1"), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, v, []byte("hello value"))
 
 	time.Sleep(5 * time.Second)
 
-	_, err = kv.Get([]byte("hello1"), false)
+	_, err = kv.Get([]byte("hello1"), nil)
 	if err == nil {
 		t.Error("ttl delete error")
 	}
@@ -382,7 +382,7 @@ func TestSetTtlKvdb(t *testing.T) {
 //	}
 //	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
 //
-//	kv, err := OpenKvdb(dir, false, false, 10)
+//	kv, err := OpenKvdb(dir, nil, nil, 10)
 //	if err != nil {
 //		panic(err)
 //	}

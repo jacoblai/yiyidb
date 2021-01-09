@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 )
 
-func (k *Kvdb) PutChan(chname string, value []byte, ttl int, tran bool) error {
+func (k *Kvdb) PutChan(chname string, value []byte, ttl int, tran *leveldb.Transaction) error {
 	if mt, ok := k.mats.Load(chname); ok {
 		ma := mt.(*Mat)
 		atomic.AddInt64(&ma.Tail, 1)
@@ -28,7 +28,7 @@ func (k *Kvdb) PutChan(chname string, value []byte, ttl int, tran bool) error {
 	return nil
 }
 
-func (k *Kvdb) PutObjectChan(chname string, value interface{}, ttl int, tran bool) error {
+func (k *Kvdb) PutObjectChan(chname string, value interface{}, ttl int, tran *leveldb.Transaction) error {
 	t := reflect.ValueOf(value)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -40,7 +40,7 @@ func (k *Kvdb) PutObjectChan(chname string, value interface{}, ttl int, tran boo
 	return k.PutChan(chname, msg, ttl, tran)
 }
 
-func (k *Kvdb) BatPutOrDelChan(chname string, items *[]BatItem) error {
+func (k *Kvdb) BatPutOrDelChan(chname string, items *[]BatItem, tran *leveldb.Transaction) error {
 	if k.enableChan {
 		h, t := k.getmtinfo(chname)
 		batch := new(leveldb.Batch)
@@ -60,8 +60,8 @@ func (k *Kvdb) BatPutOrDelChan(chname string, items *[]BatItem) error {
 				k.delchan(v.Key)
 			}
 		}
-		if k.tran != nil {
-			err := k.tran.Write(batch, nil)
+		if tran != nil {
+			err := tran.Write(batch, nil)
 			if err != nil {
 				k.setmtinfo(chname, h, t)
 				return err
@@ -105,7 +105,7 @@ func (k *Kvdb) addchan(key []byte) {
 	}
 }
 
-func (k *Kvdb) Clear(chname string, tran bool) error {
+func (k *Kvdb) Clear(chname string, tran *leveldb.Transaction) error {
 	all := k.KeyStartKeys([]byte(chname), tran)
 	items := make([]BatItem, 0)
 	for _, v := range all {
@@ -134,7 +134,7 @@ func (k *Kvdb) delchan(key []byte) {
 	}
 }
 
-func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}, tran bool) ([]KvItem, error) {
+func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}, tran *leveldb.Transaction) ([]KvItem, error) {
 	regx, err := regexp.Compile(exp)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func (k *Kvdb) RegexpByObjectChan(chname, exp string, Ntype interface{}, tran bo
 	return result, nil
 }
 
-func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}, tran bool) []KvItem {
+func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}, tran *leveldb.Transaction) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
@@ -184,7 +184,7 @@ func (k *Kvdb) AllByObjectChan(chname string, Ntype interface{}, tran bool) []Kv
 	return result
 }
 
-func (k *Kvdb) AllByKVChan(chname string, tran bool) []KvItem {
+func (k *Kvdb) AllByKVChan(chname string, tran *leveldb.Transaction) []KvItem {
 	result := make([]KvItem, 0)
 	cha := append([]byte(chname), 0xFF)
 	iter := k.newIter(util.BytesPrefix(cha), tran)
@@ -202,7 +202,7 @@ func (k *Kvdb) AllByKVChan(chname string, tran bool) []KvItem {
 
 func (k *Kvdb) init() {
 	if k.enableChan {
-		iter := k.newIter(nil, false)
+		iter := k.newIter(nil, nil)
 		defer iter.Release()
 		for iter.Next() {
 			mixName := keyName(iter.Key())
