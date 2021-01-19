@@ -417,8 +417,8 @@ func BenchmarkQueueEnqueue(b *testing.B) {
 	}
 }
 
-type object struct {
-	aaa int
+type Object struct {
+	Val int
 }
 
 func BenchmarkQueueDequeue(b *testing.B) {
@@ -432,7 +432,7 @@ func BenchmarkQueueDequeue(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			if _, err = q.EnqueueObject(object{2}); err != nil {
+			if _, err = q.EnqueueObject(Object{2}); err != nil {
 				b.Error(err)
 			}
 		}
@@ -443,7 +443,7 @@ func BenchmarkQueueDequeue(b *testing.B) {
 			if item, err := q.Dequeue(); err != nil {
 				b.Error(err)
 			} else {
-				var obj object
+				var obj Object
 				err = item.ToObject(&obj)
 				if err != nil {
 					b.Error(err)

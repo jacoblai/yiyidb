@@ -10,6 +10,53 @@ import (
 	"time"
 )
 
+func TestKvdb_GetObjectMixByField(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+	//参数说明
+	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
+	kv, err := OpenKvdb(dir, false, false, 10)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	obj := Object{Val: 99}
+	err = kv.PutObjectMix("chnaname", "keyname", &obj, 0, nil)
+	assert.Equal(t, err, nil)
+	val, err := kv.GetObjectMixByField("chnaname", "keyname", "Val", nil)
+	assert.Equal(t, err, nil)
+	t.Log(val.(uint64))
+}
+
+func TestIdToKeyPure(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+	dir = dir + "/" + fmt.Sprintf("test_db_%d", time.Now().UnixNano())
+	//参数说明
+	//1数据库路径,2是否开启ttl自动删除记录,3数据碰测优化，输入可能出现key的最大长度
+	kv, err := OpenKvdb(dir, false, false, 10)
+	if err != nil {
+		panic(err)
+	}
+	defer kv.Close()
+
+	for i := 0; i < 5; i++ {
+		_ = kv.Put(IdToKeyPure(int64(i)), nil, 0, nil)
+	}
+	all := kv.AllByKV(nil)
+	old := int64(0)
+	for _, item := range all {
+		assert.Equal(t, old, KeyToIDPure(item.Key))
+		old++
+	}
+}
+
 func TestKvdb_AllByKVMix(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {

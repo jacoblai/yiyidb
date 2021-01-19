@@ -50,6 +50,23 @@ func (k *Kvdb) GetObjectMix(chname, key string, value interface{}, tran *leveldb
 	return nil
 }
 
+func (k *Kvdb) GetObjectMixByField(chname, key, field string, tran *leveldb.Transaction) (interface{}, error) {
+	data, err := k.Get(idToKeyMix(chname, key), tran)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string]interface{})
+	err = msgpack.Unmarshal(data, &res)
+	if err != nil {
+		return nil, err
+	}
+	val, ok := res[field]
+	if !ok {
+		return nil, errors.New("not found field")
+	}
+	return val, nil
+}
+
 func (k *Kvdb) PutMix(chname, key string, value []byte, ttl int, tran *leveldb.Transaction) error {
 	nk := idToKeyMix(chname, key)
 	if err := k.Put(nk, value, ttl, tran); err != nil {
