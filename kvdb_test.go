@@ -29,7 +29,7 @@ func TestKvdb_GetObjectMixByField(t *testing.T) {
 	assert.Equal(t, err, nil)
 	val, err := kv.GetObjectMixByField("chnaname", "keyname", "Val", nil)
 	assert.Equal(t, err, nil)
-	t.Log(val.(uint64))
+	assert.Equal(t, val.(uint64), uint64(99))
 }
 
 func TestIdToKeyPure(t *testing.T) {
