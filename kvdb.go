@@ -458,7 +458,7 @@ func (k *Kvdb) AllByKV(tran *leveldb.Transaction) []KvItem {
 }
 
 func (k *Kvdb) AllKeys(limit int, tran *leveldb.Transaction) []string {
-	var keys []string
+	keys := make([]string, 0)
 	lt := 0
 	iter := k.newIter(nil, tran)
 	for iter.Next() {
