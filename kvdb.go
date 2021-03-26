@@ -457,11 +457,16 @@ func (k *Kvdb) AllByKV(tran *leveldb.Transaction) []KvItem {
 	return result
 }
 
-func (k *Kvdb) AllKeys(tran *leveldb.Transaction) []string {
+func (k *Kvdb) AllKeys(limit int, tran *leveldb.Transaction) []string {
 	var keys []string
+	lt := 0
 	iter := k.newIter(nil, tran)
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
+		lt++
+		if lt >= limit {
+			break
+		}
 	}
 	iter.Release()
 	return keys
