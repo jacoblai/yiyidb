@@ -141,7 +141,7 @@ func (k *Kvdb) DelColMix(chname, key string, tran *leveldb.Transaction) error {
 
 }
 
-func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, tran *leveldb.Transaction) []KvItem {
+func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, paging *Paging, tran *leveldb.Transaction) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
@@ -153,16 +153,38 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, tran 
 	}
 	iter := k.newIter(util.BytesPrefix(key), tran)
 	t := reflect.New(nt).Interface()
-	for iter.Next() {
-		err := msgpack.Unmarshal(iter.Value(), t)
-		if err == nil {
-			item := KvItem{}
-			item.Key = make([]byte, len(iter.Key()))
-			copy(item.Key, iter.Key())
-			item.Object = t
-			result = append(result, item)
+	if paging == nil {
+		for iter.Next() {
+			err := msgpack.Unmarshal(iter.Value(), t)
+			if err == nil {
+				item := KvItem{}
+				item.Key = make([]byte, len(iter.Key()))
+				copy(item.Key, iter.Key())
+				item.Object = t
+				result = append(result, item)
+			}
+		}
+	} else {
+		step := 0
+		for iter.Next() {
+			if step+1 < paging.Skip {
+				continue
+			}
+			err := msgpack.Unmarshal(iter.Value(), t)
+			if err == nil {
+				item := KvItem{}
+				item.Key = make([]byte, len(iter.Key()))
+				copy(item.Key, iter.Key())
+				item.Object = t
+				result = append(result, item)
+			}
+			step++
+			if len(result) >= paging.Limit {
+				break
+			}
 		}
 	}
+
 	iter.Release()
 	return result
 }
