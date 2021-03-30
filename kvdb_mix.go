@@ -152,9 +152,9 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 		key = append(key, []byte(keyPrefix)...)
 	}
 	iter := k.newIter(util.BytesPrefix(key), tran)
+	t := reflect.New(nt).Interface()
 	if paging == nil {
 		for iter.Next() {
-			t := reflect.New(nt).Interface()
 			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
 				item := KvItem{}
@@ -166,26 +166,62 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 		}
 	} else {
 		step := 0
-		for iter.Next() {
-			if step+1 < paging.Skip {
-				continue
+		if paging.Sort == -1 {
+			if iter.Last() {
+				if step+1 < paging.Skip {
+					goto end
+				}
+				err := msgpack.Unmarshal(iter.Value(), t)
+				if err == nil {
+					item := KvItem{}
+					item.Key = make([]byte, len(iter.Key()))
+					copy(item.Key, iter.Key())
+					item.Object = t
+					result = append(result, item)
+				}
+				step++
+				if len(result) >= paging.Limit {
+					goto end
+				}
 			}
-			t := reflect.New(nt).Interface()
-			err := msgpack.Unmarshal(iter.Value(), t)
-			if err == nil {
-				item := KvItem{}
-				item.Key = make([]byte, len(iter.Key()))
-				copy(item.Key, iter.Key())
-				item.Object = t
-				result = append(result, item)
+			for iter.Prev() {
+				if step+1 < paging.Skip {
+					continue
+				}
+				err := msgpack.Unmarshal(iter.Value(), t)
+				if err == nil {
+					item := KvItem{}
+					item.Key = make([]byte, len(iter.Key()))
+					copy(item.Key, iter.Key())
+					item.Object = t
+					result = append(result, item)
+				}
+				step++
+				if len(result) >= paging.Limit {
+					break
+				}
 			}
-			step++
-			if len(result) >= paging.Limit {
-				break
+		} else {
+			for iter.Next() {
+				if step+1 < paging.Skip {
+					continue
+				}
+				err := msgpack.Unmarshal(iter.Value(), t)
+				if err == nil {
+					item := KvItem{}
+					item.Key = make([]byte, len(iter.Key()))
+					copy(item.Key, iter.Key())
+					item.Object = t
+					result = append(result, item)
+				}
+				step++
+				if len(result) >= paging.Limit {
+					break
+				}
 			}
 		}
 	}
-
+end:
 	iter.Release()
 	return result
 }
