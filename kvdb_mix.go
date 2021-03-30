@@ -141,13 +141,17 @@ func (k *Kvdb) DelColMix(chname, key string, tran *leveldb.Transaction) error {
 
 }
 
-func (k *Kvdb) AllByObjectMix(chname string, Ntype interface{}, tran *leveldb.Transaction) []KvItem {
+func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, tran *leveldb.Transaction) []KvItem {
 	nt := reflect.TypeOf(Ntype)
 	if nt.Kind() == reflect.Ptr {
 		nt = nt.Elem()
 	}
 	result := make([]KvItem, 0)
-	iter := k.newIter(util.BytesPrefix(append([]byte(chname), 0xFF)), tran)
+	key := append([]byte(chname), 0xFF)
+	if keyPrefix != "" {
+		key = append(key, []byte(keyPrefix)...)
+	}
+	iter := k.newIter(util.BytesPrefix(key), tran)
 	for iter.Next() {
 		t := reflect.New(nt).Interface()
 		err := msgpack.Unmarshal(iter.Value(), t)

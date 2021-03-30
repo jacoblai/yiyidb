@@ -97,7 +97,7 @@ func TestKvdb_AllByKVMix(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, o.Value, 111)
 
-	all = kv.AllByObjectMix("jjj", o, nil)
+	all = kv.AllByObjectMix("jjj", "", o, nil)
 	assert.Equal(t, all[0].Object, &object{111})
 
 	kv.Drop()
