@@ -20,7 +20,7 @@ import (
 type Kvdb struct {
 	DataDir      string
 	db           *leveldb.DB
-	ttldb        *ttlRunner
+	ttldb        *TtlRunner
 	enableTtl    bool
 	enableChan   bool
 	mats         *sync.Map //map[string]*mat
