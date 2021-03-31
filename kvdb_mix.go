@@ -152,9 +152,9 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 		key = append(key, []byte(keyPrefix)...)
 	}
 	iter := k.newIter(util.BytesPrefix(key), tran)
+	t := reflect.New(nt).Interface()
 	if paging == nil {
 		for iter.Next() {
-			t := reflect.New(nt).Interface()
 			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
 				item := KvItem{}
@@ -170,7 +170,6 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 			if step+1 < paging.Skip {
 				continue
 			}
-			t := reflect.New(nt).Interface()
 			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
 				item := KvItem{}
