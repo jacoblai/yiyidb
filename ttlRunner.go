@@ -112,7 +112,7 @@ func (t *TtlRunner) Run() {
 				}
 				time.Sleep(5 * time.Millisecond)
 			} else {
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 			}
 		}
 	}
