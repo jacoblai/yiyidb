@@ -1,15 +1,14 @@
 package yiyidb
 
 import (
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"gopkg.in/vmihailenco/msgpack.v2"
+	"log"
 	"time"
 )
 
-type ttlRunner struct {
+type TtlRunner struct {
 	masterdb      *leveldb.DB
 	db            *leveldb.DB
 	iteratorOpts  *opt.ReadOptions
@@ -18,9 +17,9 @@ type ttlRunner struct {
 	IsWorking     bool
 }
 
-func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*ttlRunner, error) {
+func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*TtlRunner, error) {
 	var err error
-	ttl := &ttlRunner{
+	ttl := &TtlRunner{
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		quit:         make(chan struct{}, 1),
@@ -47,20 +46,16 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 	return ttl, nil
 }
 
-func (t *ttlRunner) Exists(key []byte) bool {
+func (t *TtlRunner) Exists(key []byte) bool {
 	ok, _ := t.db.Has(key, t.iteratorOpts)
 	return ok
 }
 
-func (t *ttlRunner) SetTTL(expires int, masterDbKey []byte) error {
+func (t *TtlRunner) SetTTL(expires int, masterDbKey []byte) error {
 	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
-		ttl := &TtlItem{
-			Dukey: masterDbKey,
-		}
-		ttl.touch(time.Duration(expires) * time.Second)
-		ttlitem, _ := msgpack.Marshal(ttl)
-		if err := t.db.Put(masterDbKey, ttlitem, nil); err != nil {
+		exp := time.Now().Add(time.Duration(expires) * time.Second)
+		if err := t.db.Put(masterDbKey, IdToKeyPure(exp.UnixNano()), nil); err != nil {
 			return err
 		}
 	} else if expires < 0 {
@@ -72,65 +67,58 @@ func (t *ttlRunner) SetTTL(expires int, masterDbKey []byte) error {
 	return nil
 }
 
-func (t *ttlRunner) GetTTL(key []byte) (float64, error) {
+func (t *TtlRunner) GetTTL(key []byte) (float64, error) {
 	val, err := t.db.Get(key, t.iteratorOpts)
 	if err != nil {
 		return 0, err
 	}
-	var it TtlItem
-	if err := msgpack.Unmarshal(val, &it); err != nil {
-		return 0, err
-	}
-	return it.Expires.Sub(time.Now()).Seconds(), nil
+	exp := time.Unix(0, KeyToIDPure(val))
+	return exp.Sub(time.Now()).Seconds(), nil
 }
 
-func (t *ttlRunner) DelTTL(key []byte) error {
+func (t *TtlRunner) DelTTL(key []byte) error {
 	return t.db.Delete(key, nil)
 }
 
-func (t *ttlRunner) Run() {
-	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if !t.IsWorking {
-					t.IsWorking = true
-					batch := new(leveldb.Batch)
-					iter := t.db.NewIterator(nil, t.iteratorOpts)
-					for iter.Next() {
-						var it TtlItem
-						if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-							t.db.Delete(iter.Key(), nil)
-						} else {
-							if it.expired() {
-								batch.Delete(it.Dukey)
-								val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-								if err == nil && t.HandleExpirse != nil {
-									t.HandleExpirse(iter.Key(), val)
-								}
-							}
+func (t *TtlRunner) Run() {
+	for {
+		select {
+		case <-t.quit:
+			return
+		default:
+			if !t.IsWorking {
+				t.IsWorking = true
+				batch := new(leveldb.Batch)
+				iter := t.db.NewIterator(nil, t.iteratorOpts)
+				for iter.Next() {
+					exp := time.Unix(0, KeyToIDPure(iter.Value()))
+					if time.Now().After(exp) {
+						k := iter.Key()
+						batch.Delete(k)
+						val, err := t.masterdb.Get(k, nil)
+						if err == nil && t.HandleExpirse != nil {
+							t.HandleExpirse(k, val)
 						}
 					}
-					iter.Release()
-					if batch.Len() > 0 {
-						if err := t.masterdb.Write(batch, nil); err != nil {
-							fmt.Println(err)
-						}
-						if err := t.db.Write(batch, nil); err != nil {
-							fmt.Println(err)
-						}
-					}
-					t.IsWorking = false
 				}
-			case <-t.quit:
-				ticker.Stop()
-				return
+				iter.Release()
+				if batch.Len() > 0 {
+					if err := t.masterdb.Write(batch, nil); err != nil {
+						log.Println(err)
+					}
+					if err := t.db.Write(batch, nil); err != nil {
+						log.Println(err)
+					}
+				}
+				t.IsWorking = false
+				time.Sleep(2 * time.Millisecond)
+			} else {
+				time.Sleep(1 * time.Second)
 			}
 		}
-	}()
+	}
 }
 
-func (t *ttlRunner) Close() {
+func (t *TtlRunner) Close() {
 	close(t.quit)
 }
