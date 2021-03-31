@@ -11,7 +11,6 @@ import (
 type TtlRunner struct {
 	masterdb      *leveldb.DB
 	db            *leveldb.DB
-	iteratorOpts  *opt.ReadOptions
 	quit          chan struct{}
 	HandleExpirse func(key, value []byte)
 }
@@ -19,9 +18,8 @@ type TtlRunner struct {
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*TtlRunner, error) {
 	var err error
 	ttl := &TtlRunner{
-		masterdb:     masterdb,
-		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		quit:         make(chan struct{}, 1),
+		masterdb: masterdb,
+		quit:     make(chan struct{}, 1),
 	}
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
@@ -45,7 +43,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 }
 
 func (t *TtlRunner) Exists(key []byte) bool {
-	ok, _ := t.db.Has(key, t.iteratorOpts)
+	ok, _ := t.db.Has(key, nil)
 	return ok
 }
 
@@ -66,7 +64,7 @@ func (t *TtlRunner) SetTTL(expires int, masterDbKey []byte) error {
 }
 
 func (t *TtlRunner) GetTTL(key []byte) (float64, error) {
-	val, err := t.db.Get(key, t.iteratorOpts)
+	val, err := t.db.Get(key, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -86,7 +84,7 @@ func (t *TtlRunner) Run() {
 		default:
 			ct := 0
 			batch := new(leveldb.Batch)
-			iter := t.db.NewIterator(nil, t.iteratorOpts)
+			iter := t.db.NewIterator(nil, nil)
 			for iter.Next() {
 				exp := time.Unix(0, KeyToIDPure(iter.Value()))
 				if time.Now().After(exp) {
