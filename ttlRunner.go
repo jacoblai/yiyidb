@@ -106,9 +106,9 @@ func (t *TtlRunner) Run() {
 						}
 					}
 				}
-				log.Println("ttl del", ct)
 				iter.Release()
 				if batch.Len() > 0 {
+					log.Println("del ttl", batch.Len())
 					if err := t.masterdb.Write(batch, nil); err != nil {
 						log.Println(err)
 					}
