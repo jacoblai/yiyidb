@@ -14,7 +14,6 @@ type TtlRunner struct {
 	iteratorOpts  *opt.ReadOptions
 	quit          chan struct{}
 	HandleExpirse func(key, value []byte)
-	IsWorking     bool
 }
 
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*TtlRunner, error) {
@@ -23,7 +22,6 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		quit:         make(chan struct{}, 1),
-		IsWorking:    false,
 	}
 	opts := &opt.Options{}
 	opts.ErrorIfMissing = false
@@ -86,41 +84,35 @@ func (t *TtlRunner) Run() {
 		case <-t.quit:
 			return
 		default:
-			if !t.IsWorking {
-				ct := 0
-				t.IsWorking = true
-				batch := new(leveldb.Batch)
-				iter := t.db.NewIterator(nil, t.iteratorOpts)
-				for iter.Next() {
-					exp := time.Unix(0, KeyToIDPure(iter.Value()))
-					if time.Now().After(exp) {
-						ct++
-						if ct >= 100000 {
-							break
-						}
-						k := iter.Key()
-						batch.Delete(k)
-						val, err := t.masterdb.Get(k, nil)
-						if err == nil && t.HandleExpirse != nil {
-							t.HandleExpirse(k, val)
-						}
+			ct := 0
+			batch := new(leveldb.Batch)
+			iter := t.db.NewIterator(nil, t.iteratorOpts)
+			for iter.Next() {
+				exp := time.Unix(0, KeyToIDPure(iter.Value()))
+				if time.Now().After(exp) {
+					ct++
+					if ct >= 100000 {
+						break
+					}
+					k := iter.Key()
+					batch.Delete(k)
+					val, err := t.masterdb.Get(k, nil)
+					if err == nil && t.HandleExpirse != nil {
+						t.HandleExpirse(k, val)
 					}
 				}
-				iter.Release()
-				if batch.Len() > 0 {
-					log.Println("del ttl", batch.Len())
-					if err := t.masterdb.Write(batch, nil); err != nil {
-						log.Println(err)
-					}
-					if err := t.db.Write(batch, nil); err != nil {
-						log.Println(err)
-					}
-				}
-				t.IsWorking = false
-				time.Sleep(2 * time.Millisecond)
-			} else {
-				time.Sleep(1 * time.Second)
 			}
+			iter.Release()
+			if batch.Len() > 0 {
+				log.Println("del ttl", batch.Len())
+				if err := t.masterdb.Write(batch, nil); err != nil {
+					log.Println(err)
+				}
+				if err := t.db.Write(batch, nil); err != nil {
+					log.Println(err)
+				}
+			}
+			time.Sleep(5 * time.Millisecond)
 		}
 	}
 }
