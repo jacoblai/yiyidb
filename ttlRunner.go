@@ -87,12 +87,17 @@ func (t *TtlRunner) Run() {
 			return
 		default:
 			if !t.IsWorking {
+				ct := 0
 				t.IsWorking = true
 				batch := new(leveldb.Batch)
 				iter := t.db.NewIterator(nil, t.iteratorOpts)
 				for iter.Next() {
 					exp := time.Unix(0, KeyToIDPure(iter.Value()))
 					if time.Now().After(exp) {
+						ct++
+						if ct >= 100000 {
+							break
+						}
 						k := iter.Key()
 						batch.Delete(k)
 						val, err := t.masterdb.Get(k, nil)
@@ -101,6 +106,7 @@ func (t *TtlRunner) Run() {
 						}
 					}
 				}
+				log.Println("ttl del", ct)
 				iter.Release()
 				if batch.Len() > 0 {
 					if err := t.masterdb.Write(batch, nil); err != nil {
