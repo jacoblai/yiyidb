@@ -1,5 +1,9 @@
 package yiyidb
 
+/*
+#include "ticker.h"
+*/
+import "C"
 import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -14,10 +18,47 @@ type TtlRunner struct {
 	masterdb      *leveldb.DB
 	db            *leveldb.DB
 	iteratorOpts  *opt.ReadOptions
-	quit          chan struct{}
 	HandleExpirse func(key, value []byte)
 	IsWorking     bool
 	batch         *leveldb.Batch
+}
+
+var ttlInstance *TtlRunner
+
+//export Gotask
+func Gotask() {
+	if ttlInstance == nil {
+		return
+	}
+	if !ttlInstance.IsWorking {
+		ttlInstance.IsWorking = true
+		ttlInstance.batch.Reset()
+		iter := ttlInstance.db.NewIterator(nil, ttlInstance.iteratorOpts)
+		for iter.Next() {
+			var it TtlItem
+			if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
+				ttlInstance.db.Delete(iter.Key(), nil)
+			} else {
+				if it.expired() {
+					ttlInstance.batch.Delete(it.Dukey)
+					val, err := ttlInstance.masterdb.Get(iter.Key(), ttlInstance.iteratorOpts)
+					if err == nil && ttlInstance.HandleExpirse != nil {
+						ttlInstance.HandleExpirse(iter.Key(), val)
+					}
+				}
+			}
+		}
+		iter.Release()
+		if ttlInstance.batch.Len() > 0 {
+			if err := ttlInstance.masterdb.Write(ttlInstance.batch, nil); err != nil {
+				fmt.Println(err)
+			}
+			if err := ttlInstance.db.Write(ttlInstance.batch, nil); err != nil {
+				fmt.Println(err)
+			}
+		}
+		ttlInstance.IsWorking = false
+	}
 }
 
 func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*TtlRunner, error) {
@@ -25,7 +66,6 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 	ttl := &TtlRunner{
 		masterdb:     masterdb,
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		quit:         make(chan struct{}, 1),
 		IsWorking:    false,
 		batch:        &leveldb.Batch{},
 	}
@@ -92,50 +132,11 @@ func (t *TtlRunner) DelTTL(key []byte) error {
 }
 
 func (t *TtlRunner) Run() {
-	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if !t.IsWorking {
-					t.IsWorking = true
-					t.batch.Reset()
-					iter := t.db.NewIterator(nil, t.iteratorOpts)
-					for iter.Next() {
-						var it TtlItem
-						if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-							t.db.Delete(iter.Key(), nil)
-						} else {
-							if it.expired() {
-								t.batch.Delete(it.Dukey)
-								val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-								if err == nil && t.HandleExpirse != nil {
-									t.HandleExpirse(iter.Key(), val)
-								}
-							}
-						}
-					}
-					iter.Release()
-					if t.batch.Len() > 0 {
-						if err := t.masterdb.Write(t.batch, nil); err != nil {
-							fmt.Println(err)
-						}
-						if err := t.db.Write(t.batch, nil); err != nil {
-							fmt.Println(err)
-						}
-					}
-					t.IsWorking = false
-				}
-			case <-t.quit:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
+	C.cticker()
 }
 
 func (t *TtlRunner) Close() {
-	close(t.quit)
+	_ = t.db.Close()
 }
 
 type TtlItem struct {

@@ -71,8 +71,9 @@ func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 			return nil, err
 		}
 		kv.ttldb.HandleExpirse = kv.onExp
+		ttlInstance = kv.ttldb
 		//run ttl func
-		kv.ttldb.Run()
+		go kv.ttldb.Run()
 	}
 
 	return kv, nil
