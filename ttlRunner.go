@@ -23,39 +23,38 @@ type TtlRunner struct {
 	batch         *leveldb.Batch
 }
 
+var ttlrn *TtlRunner
+
 //export Gotask
 func Gotask() {
-	if t == nil {
-		return
-	}
-	if !t.IsWorking {
-		t.IsWorking = true
-		t.batch.Reset()
-		iter := t.db.NewIterator(nil, t.iteratorOpts)
+	if !ttlrn.IsWorking {
+		ttlrn.IsWorking = true
+		ttlrn.batch.Reset()
+		iter := ttlrn.db.NewIterator(nil, ttlrn.iteratorOpts)
 		for iter.Next() {
 			var it TtlItem
 			if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-				t.db.Delete(iter.Key(), nil)
+				ttlrn.db.Delete(iter.Key(), nil)
 			} else {
 				if it.expired() {
-					t.batch.Delete(it.Dukey)
-					val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-					if err == nil && t.HandleExpirse != nil {
-						t.HandleExpirse(iter.Key(), val)
+					ttlrn.batch.Delete(it.Dukey)
+					val, err := ttlrn.masterdb.Get(iter.Key(), ttlrn.iteratorOpts)
+					if err == nil && ttlrn.HandleExpirse != nil {
+						ttlrn.HandleExpirse(iter.Key(), val)
 					}
 				}
 			}
 		}
 		iter.Release()
-		if t.batch.Len() > 0 {
-			if err := t.masterdb.Write(t.batch, nil); err != nil {
+		if ttlrn.batch.Len() > 0 {
+			if err := ttlrn.masterdb.Write(ttlrn.batch, nil); err != nil {
 				fmt.Println(err)
 			}
-			if err := t.db.Write(t.batch, nil); err != nil {
+			if err := ttlrn.db.Write(ttlrn.batch, nil); err != nil {
 				fmt.Println(err)
 			}
 		}
-		t.IsWorking = false
+		ttlrn.IsWorking = false
 	}
 }
 
@@ -129,6 +128,7 @@ func (t *TtlRunner) DelTTL(key []byte) error {
 }
 
 func (t *TtlRunner) Run() {
+	ttlrn = t
 	C.cticker()
 }
 
