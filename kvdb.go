@@ -22,7 +22,6 @@ type Kvdb struct {
 	db           *leveldb.DB
 	ttldb        *TtlRunner
 	enableTtl    bool
-	enableChan   bool
 	mats         *sync.Map //map[string]*mat
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
@@ -34,7 +33,7 @@ type KvItem struct {
 	Object interface{}
 }
 
-func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error) {
+func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 	var err error
 
 	kv := &Kvdb{
@@ -42,7 +41,6 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 		db:           &leveldb.DB{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
 		enableTtl:    nttl,
-		enableChan:   nChan,
 		mats:         &sync.Map{},
 	}
 
@@ -74,7 +72,7 @@ func OpenKvdb(dataDir string, nChan, nttl bool, defaultKeyLen int) (*Kvdb, error
 		}
 		kv.ttldb.HandleExpirse = kv.onExp
 		//run ttl func
-		go kv.ttldb.Run()
+		kv.ttldb.Run()
 	}
 
 	return kv, nil
