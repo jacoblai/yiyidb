@@ -82,21 +82,18 @@ func (t *TtlRunner) Run() {
 		case <-t.quit:
 			return
 		default:
-			ct := 0
 			batch := new(leveldb.Batch)
 			iter := t.db.NewIterator(nil, nil)
 			for iter.Next() {
 				exp := time.Unix(0, KeyToIDPure(iter.Value()))
 				if time.Now().After(exp) {
-					ct++
-					if ct >= 100000 {
-						break
-					}
 					k := iter.Key()
 					batch.Delete(k)
-					val, err := t.masterdb.Get(k, nil)
-					if err == nil && t.HandleExpirse != nil {
-						t.HandleExpirse(k, val)
+					if t.HandleExpirse != nil {
+						val, err := t.masterdb.Get(k, nil)
+						if err == nil {
+							t.HandleExpirse(k, val)
+						}
 					}
 				}
 			}
@@ -108,9 +105,9 @@ func (t *TtlRunner) Run() {
 				if err := t.db.Write(batch, nil); err != nil {
 					log.Println(err)
 				}
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(1 * time.Millisecond)
 			} else {
-				time.Sleep(5 * time.Second)
+				time.Sleep(1 * time.Second)
 			}
 		}
 	}

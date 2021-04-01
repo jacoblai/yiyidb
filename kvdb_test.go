@@ -3,6 +3,7 @@ package yiyidb
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -358,25 +359,30 @@ func TestSetTtlKvdb(t *testing.T) {
 	}
 	defer kv.Close()
 
-	kv.Put([]byte("hello1"), []byte("hello value"), 3, nil)
-	kv.Put([]byte("hello2"), []byte("hello value2"), 10, nil)
+	//kv.Put([]byte("hello1"), []byte("hello value"), 3, nil)
 
-	kv.SetTTL([]byte("hello2"), 8, nil)
-
-	f, err := kv.GetTTL([]byte("hello2"))
-	assert.NoError(t, err)
-	assert.Equal(t, int(f)+1, 8)
-
-	v, err := kv.Get([]byte("hello1"), nil)
-	assert.NoError(t, err)
-	assert.Equal(t, v, []byte("hello value"))
-
-	time.Sleep(5 * time.Second)
-
-	_, err = kv.Get([]byte("hello1"), nil)
-	if err == nil {
-		t.Error("ttl delete error")
+	kv.OnExpirse = func(key, value []byte) {
+		log.Println(string(key), string(value))
 	}
+	kv.Put([]byte("hello2"), []byte("hello value2"), 3, nil)
+	//kv.SetTTL([]byte("hello2"), 8, nil)
+	//
+	//f, err := kv.GetTTL([]byte("hello2"))
+	//assert.NoError(t, err)
+	//assert.Equal(t, int(f)+1, 8)
+	//
+	//v, err := kv.Get([]byte("hello1"), nil)
+	//assert.NoError(t, err)
+	//assert.Equal(t, v, []byte("hello value"))
+
+	time.Sleep(2 * time.Second)
+
+	_, err = kv.Get([]byte("hello2"), nil)
+	assert.NoError(t, err)
+
+	time.Sleep(2 * time.Second)
+	_, err = kv.Get([]byte("hello2"), nil)
+	assert.Error(t, err)
 
 	kv.Drop()
 }
