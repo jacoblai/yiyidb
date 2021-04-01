@@ -87,6 +87,7 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 		return nil, err
 	}
 
+	ttlInstance = ttl
 	return ttl, nil
 }
 
