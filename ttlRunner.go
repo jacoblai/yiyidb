@@ -23,41 +23,39 @@ type TtlRunner struct {
 	batch         *leveldb.Batch
 }
 
-var ttlInstance *TtlRunner
-
 //export Gotask
 func Gotask() {
-	if ttlInstance == nil {
+	if t == nil {
 		return
 	}
-	if !ttlInstance.IsWorking {
-		ttlInstance.IsWorking = true
-		ttlInstance.batch.Reset()
-		iter := ttlInstance.db.NewIterator(nil, ttlInstance.iteratorOpts)
+	if !t.IsWorking {
+		t.IsWorking = true
+		t.batch.Reset()
+		iter := t.db.NewIterator(nil, t.iteratorOpts)
 		for iter.Next() {
 			var it TtlItem
 			if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-				ttlInstance.db.Delete(iter.Key(), nil)
+				t.db.Delete(iter.Key(), nil)
 			} else {
 				if it.expired() {
-					ttlInstance.batch.Delete(it.Dukey)
-					val, err := ttlInstance.masterdb.Get(iter.Key(), ttlInstance.iteratorOpts)
-					if err == nil && ttlInstance.HandleExpirse != nil {
-						ttlInstance.HandleExpirse(iter.Key(), val)
+					t.batch.Delete(it.Dukey)
+					val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
+					if err == nil && t.HandleExpirse != nil {
+						t.HandleExpirse(iter.Key(), val)
 					}
 				}
 			}
 		}
 		iter.Release()
-		if ttlInstance.batch.Len() > 0 {
-			if err := ttlInstance.masterdb.Write(ttlInstance.batch, nil); err != nil {
+		if t.batch.Len() > 0 {
+			if err := t.masterdb.Write(t.batch, nil); err != nil {
 				fmt.Println(err)
 			}
-			if err := ttlInstance.db.Write(ttlInstance.batch, nil); err != nil {
+			if err := t.db.Write(t.batch, nil); err != nil {
 				fmt.Println(err)
 			}
 		}
-		ttlInstance.IsWorking = false
+		t.IsWorking = false
 	}
 }
 
@@ -86,8 +84,6 @@ func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*
 	if err != nil {
 		return nil, err
 	}
-
-	ttlInstance = ttl
 	return ttl, nil
 }
 

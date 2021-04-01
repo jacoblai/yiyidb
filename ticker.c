@@ -8,7 +8,7 @@ void cticker()
   {
     Gotask();
     usleep(1000000);
-    if (i>= 10){
+    if (i >= 10){
        i = 0;
     }
   }
