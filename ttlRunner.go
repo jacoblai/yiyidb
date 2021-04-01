@@ -6,6 +6,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"gopkg.in/vmihailenco/msgpack.v2"
+	"log"
 	"sync"
 	"time"
 )
@@ -98,10 +99,12 @@ func (t *TtlRunner) Run() {
 			select {
 			case <-ticker.C:
 				if !t.IsWorking {
+					ct := 0
 					t.IsWorking = true
 					t.batch.Reset()
 					iter := t.db.NewIterator(nil, t.iteratorOpts)
 					for iter.Next() {
+						ct++
 						var it TtlItem
 						if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
 							t.db.Delete(iter.Key(), nil)
@@ -124,6 +127,7 @@ func (t *TtlRunner) Run() {
 							fmt.Println(err)
 						}
 					}
+					log.Println("has", ct, "bat", t.batch.Len())
 					t.IsWorking = false
 				}
 			case <-t.quit:
@@ -135,6 +139,7 @@ func (t *TtlRunner) Run() {
 }
 
 func (t *TtlRunner) Close() {
+	_ = t.db.Close()
 	close(t.quit)
 }
 
