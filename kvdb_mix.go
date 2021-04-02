@@ -95,12 +95,12 @@ func (k *Kvdb) BatPutOrDelMix(chname string, items *[]BatItem, tran *leveldb.Tra
 		case "put":
 			batch.Put(nk, v.Value)
 			if k.enableTtl && v.Ttl > 0 {
-				k.ttldb.SetTTL(v.Ttl, nk)
+				k.ttldb.SetTTL(v.Ttl, k.dbname, string(nk))
 			}
 		case "del":
 			batch.Delete(nk)
 			if k.enableTtl {
-				k.ttldb.DelTTL(nk)
+				k.ttldb.DelTTL(k.dbname, string(nk))
 			}
 		}
 	}

@@ -1,153 +1,150 @@
 package yiyidb
 
 import (
-	"fmt"
+	"errors"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/filter"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"gopkg.in/vmihailenco/msgpack.v2"
-	"log"
+	"os"
 	"sync"
 	"time"
 )
 
 type TtlRunner struct {
-	masterdb      *leveldb.DB
-	db            *leveldb.DB
-	iteratorOpts  *opt.ReadOptions
-	quit          chan struct{}
-	HandleExpirse func(key, value []byte)
-	batch         *leveldb.Batch
+	DataDir    string
+	masterdbs  *sync.Map
+	db         *Kvdb
+	batchs     map[string]*leveldb.Batch
+	localBatch *leveldb.Batch
+	inv        int64
 }
 
-func OpenTtlRunner(masterdb *leveldb.DB, dbname string, defaultBloomBits int) (*TtlRunner, error) {
+func OpenTtlRunner(dataDir string) (*TtlRunner, error) {
 	var err error
 	ttl := &TtlRunner{
-		masterdb:     masterdb,
-		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		quit:         make(chan struct{}, 1),
-		batch:        &leveldb.Batch{},
+		DataDir:    dataDir,
+		masterdbs:  &sync.Map{},
+		localBatch: &leveldb.Batch{},
+		inv:        1000,
 	}
-	opts := &opt.Options{}
-	opts.ErrorIfMissing = false
-	opts.BlockCacheCapacity = 4 * MB
-	opts.Filter = filter.NewBloomFilter(defaultBloomBits)
-	opts.Compression = opt.SnappyCompression
-	opts.BlockSize = 4 * KB
-	opts.WriteBuffer = 4 * MB
-	opts.OpenFilesCacheCapacity = 1 * KB
-	opts.CompactionTableSize = 32 * MB
-	opts.WriteL0SlowdownTrigger = 16
-	opts.WriteL0PauseTrigger = 64
 
 	//Open TTl
-	ttl.db, err = leveldb.OpenFile(dbname+"/ttl", opts)
+	ttl.db, err = OpenKvdb(ttl.DataDir, 32)
 	if err != nil {
 		return nil, err
 	}
 
+	go ttl.Run()
+
 	return ttl, nil
 }
 
-func (t *TtlRunner) Exists(key []byte) bool {
-	ok, _ := t.db.Has(key, t.iteratorOpts)
-	return ok
+func (t *TtlRunner) AddTtlDb(ldb *Kvdb, dbname string) error {
+	if dbname == "" {
+		return errors.New("dbname nil")
+	}
+	t.masterdbs.Store(dbname, ldb)
+	return nil
 }
 
-func (t *TtlRunner) SetTTL(expires int, masterDbKey []byte) error {
+func (t *TtlRunner) Exists(dbname, key string) bool {
+	if dbname == "" {
+		return false
+	}
+	db, ok := t.masterdbs.Load(dbname)
+	if !ok {
+		return false
+	}
+	return db.(*Kvdb).ExistsMix(dbname, key, nil)
+}
+
+func (t *TtlRunner) SetTTL(expires int, dbname, masterDbKey string) error {
 	//设置大于0值即设置ttl以秒为单位
 	if expires > 0 {
-		ttl := &TtlItem{
-			Dukey: masterDbKey,
-		}
-		ttl.touch(time.Duration(expires) * time.Second)
-		ttlitem, _ := msgpack.Marshal(ttl)
-		if err := t.db.Put(masterDbKey, ttlitem, nil); err != nil {
+		expiration := time.Now().Add(time.Duration(expires) * time.Second)
+		if err := t.db.PutMix(dbname, masterDbKey, IdToKeyPure(expiration.UnixNano()), 0, nil); err != nil {
 			return err
 		}
 	} else if expires < 0 {
 		//设置少于0值即取消此记当的TTL属性
-		if err := t.db.Delete(masterDbKey, nil); err != nil {
+		if err := t.db.DelColMix(dbname, masterDbKey, nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (t *TtlRunner) GetTTL(key []byte) (float64, error) {
-	val, err := t.db.Get(key, t.iteratorOpts)
+func (t *TtlRunner) GetTTL(dbname, masterDbKey string) (float64, error) {
+	val, err := t.db.GetMix(dbname, masterDbKey, nil)
 	if err != nil {
 		return 0, err
 	}
-	var it TtlItem
-	if err := msgpack.Unmarshal(val, &it); err != nil {
-		return 0, err
-	}
-	return it.Expires.Sub(time.Now()).Seconds(), nil
+	it := time.Unix(0, KeyToIDPure(val))
+	return it.Sub(time.Now()).Seconds(), nil
 }
 
-func (t *TtlRunner) DelTTL(key []byte) error {
-	return t.db.Delete(key, nil)
+func (t *TtlRunner) DelTTL(dbname, masterDbKey string) error {
+	return t.db.DelColMix(dbname, masterDbKey, nil)
 }
 
 func (t *TtlRunner) Run() {
 	for {
-		t.batch.Reset()
-		iter := t.db.NewIterator(nil, t.iteratorOpts)
+		t.localBatch.Reset()
+		t.batchs = make(map[string]*leveldb.Batch)
+		iter := t.db.newIter(nil, nil)
+		now := time.Now()
 		for iter.Next() {
-			var it TtlItem
-			if err := msgpack.Unmarshal(iter.Value(), &it); err != nil {
-				t.db.Delete(iter.Key(), nil)
-			} else {
-				if it.expired() {
-					t.batch.Delete(it.Dukey)
-					val, err := t.masterdb.Get(iter.Key(), t.iteratorOpts)
-					if err == nil && t.HandleExpirse != nil {
-						t.HandleExpirse(iter.Key(), val)
-					}
+			if now.UnixNano() >= KeyToIDPure(iter.Value()) {
+				k := iter.Key()
+				t.localBatch.Delete(k)
+				dbname, masterkey := keyToIdMix(k)
+				mdb, ok := t.masterdbs.Load(dbname)
+				if !ok {
+					continue
+				}
+				mk := []byte(masterkey)
+				master := mdb.(*Kvdb)
+				val, err := master.Get(mk, nil)
+				if err == nil {
+					master.onExp(dbname, mk, val)
+				}
+				if bat, ok := t.batchs[dbname]; ok {
+					bat.Delete(mk)
+				} else {
+					bat := &leveldb.Batch{}
+					bat.Delete(mk)
+					t.batchs[dbname] = bat
 				}
 			}
 		}
 		iter.Release()
-		if t.batch.Len() > 0 {
-			if err := t.masterdb.Write(t.batch, nil); err != nil {
-				fmt.Println(err)
+		for dbname, batch := range t.batchs {
+			if batch.Len() > 0 {
+				mdb, _ := t.masterdbs.Load(dbname)
+				_ = mdb.(*Kvdb).exeBatch(batch, nil)
+				batch.Reset()
 			}
-			if err := t.db.Write(t.batch, nil); err != nil {
-				fmt.Println(err)
-			}
-			log.Println("bat", t.batch.Len())
 		}
-		time.Sleep(1 * time.Second)
+		if t.localBatch.Len() > 0 {
+			_ = t.db.exeBatch(t.localBatch, nil)
+			t.inv = 1000
+		} else {
+			use := time.Now().Sub(now).Milliseconds()
+			if use <= 0 {
+				if t.inv < 2000 {
+					t.inv += 500
+				}
+			} else {
+				t.inv = 1000 - use
+			}
+		}
+		time.Sleep(time.Duration(t.inv) * time.Millisecond)
 	}
 }
 
 func (t *TtlRunner) Close() {
 	_ = t.db.Close()
-	close(t.quit)
 }
 
-type TtlItem struct {
-	sync.RWMutex
-	Dukey   []byte
-	Expires *time.Time
-}
-
-func (item *TtlItem) touch(duration time.Duration) {
-	item.Lock()
-	expiration := time.Now().Add(duration)
-	item.Expires = &expiration
-	item.Unlock()
-}
-
-func (item *TtlItem) expired() bool {
-	value := false
-	item.RLock()
-	if item.Expires == nil {
-		value = true
-	} else {
-		value = time.Now().After(*item.Expires)
-	}
-	item.RUnlock()
-	return value
+func (t *TtlRunner) Drop() {
+	_ = t.db.Close()
+	_ = os.RemoveAll(t.DataDir)
 }

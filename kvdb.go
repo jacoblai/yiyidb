@@ -21,10 +21,11 @@ type Kvdb struct {
 	DataDir      string
 	db           *leveldb.DB
 	ttldb        *TtlRunner
-	enableTtl    bool
 	mats         *sync.Map //map[string]*mat
 	iteratorOpts *opt.ReadOptions
 	OnExpirse    func(key, value []byte)
+	enableTtl    bool
+	dbname       string
 }
 
 type KvItem struct {
@@ -33,14 +34,14 @@ type KvItem struct {
 	Object interface{}
 }
 
-func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
+func OpenKvdb(dataDir string, defaultKeyLen int) (*Kvdb, error) {
 	var err error
 
 	kv := &Kvdb{
 		DataDir:      dataDir,
 		db:           &leveldb.DB{},
 		iteratorOpts: &opt.ReadOptions{DontFillCache: true},
-		enableTtl:    nttl,
+		enableTtl:    false,
 		mats:         &sync.Map{},
 	}
 
@@ -64,17 +65,6 @@ func OpenKvdb(dataDir string, nttl bool, defaultKeyLen int) (*Kvdb, error) {
 		return nil, err
 	}
 
-	if kv.enableTtl {
-		//Open TTl
-		kv.ttldb, err = OpenTtlRunner(kv.db, kv.DataDir, int(bloom))
-		if err != nil {
-			return nil, err
-		}
-		kv.ttldb.HandleExpirse = kv.onExp
-		//run ttl func
-		go kv.ttldb.Run()
-	}
-
 	return kv, nil
 }
 
@@ -91,15 +81,26 @@ func (k *Kvdb) Drop() {
 	_ = os.RemoveAll(k.DataDir)
 }
 
-func (k *Kvdb) onExp(key, value []byte) {
-	if k.OnExpirse != nil {
+func (k *Kvdb) RegTTl(dbname string, ttl *TtlRunner) error {
+	k.enableTtl = true
+	k.dbname = dbname
+	err := ttl.AddTtlDb(k, dbname)
+	if err != nil {
+		return err
+	}
+	k.ttldb = ttl
+	return nil
+}
+
+func (k *Kvdb) onExp(dbName string, key, value []byte) {
+	if k.OnExpirse != nil && k.dbname == dbName {
 		k.OnExpirse(key, value)
 	}
 }
 
 func (k *Kvdb) NilTTL(key []byte) error {
-	if k.enableTtl && k.ttldb.Exists(key) {
-		return k.ttldb.SetTTL(-1, key)
+	if k.enableTtl && k.ttldb.Exists(k.dbname, string(key)) {
+		return k.ttldb.SetTTL(-1, k.dbname, string(key))
 	} else {
 		return errors.New("ttl not found")
 	}
@@ -108,7 +109,7 @@ func (k *Kvdb) NilTTL(key []byte) error {
 func (k *Kvdb) SetTTL(key []byte, ttl int, tran *leveldb.Transaction) error {
 	if k.enableTtl && k.Exists(key, tran) {
 		if ttl > 0 {
-			return k.ttldb.SetTTL(ttl, key)
+			return k.ttldb.SetTTL(ttl, k.dbname, string(key))
 		} else {
 			return errors.New("must > 0")
 		}
@@ -119,7 +120,7 @@ func (k *Kvdb) SetTTL(key []byte, ttl int, tran *leveldb.Transaction) error {
 
 func (k *Kvdb) GetTTL(key []byte) (float64, error) {
 	if k.enableTtl {
-		return k.ttldb.GetTTL(key)
+		return k.ttldb.GetTTL(k.dbname, string(key))
 	} else {
 		return 0, errors.New("ttl not enable")
 	}
@@ -291,7 +292,7 @@ func (k *Kvdb) Put(key, value []byte, ttl int, tran *leveldb.Transaction) error 
 		}
 	}
 	if k.enableTtl && ttl > 0 {
-		k.ttldb.SetTTL(ttl, key)
+		k.ttldb.SetTTL(ttl, k.dbname, string(key))
 	}
 	return nil
 }
@@ -347,15 +348,30 @@ func (k *Kvdb) BatPutOrDel(items *[]BatItem, tran *leveldb.Transaction) error {
 		case "put":
 			batch.Put(v.Key, v.Value)
 			if k.enableTtl && v.Ttl > 0 {
-				k.ttldb.SetTTL(v.Ttl, v.Key)
+				k.ttldb.SetTTL(v.Ttl, k.dbname, string(v.Key))
 			}
 		case "del":
 			batch.Delete(v.Key)
 			if k.enableTtl {
-				k.ttldb.DelTTL(v.Key)
+				k.ttldb.DelTTL(k.dbname, string(v.Key))
 			}
 		}
 	}
+	if tran != nil {
+		err := tran.Write(batch, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := k.db.Write(batch, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (k *Kvdb) exeBatch(batch *leveldb.Batch, tran *leveldb.Transaction) error {
 	if tran != nil {
 		err := tran.Write(batch, nil)
 		if err != nil {
@@ -383,7 +399,7 @@ func (k *Kvdb) Del(key []byte, tran *leveldb.Transaction) error {
 		}
 	}
 	if k.enableTtl {
-		k.ttldb.DelTTL(key)
+		k.ttldb.DelTTL(k.dbname, string(key))
 	}
 	return nil
 }
