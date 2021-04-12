@@ -3,6 +3,8 @@ package yiyidb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 const (
@@ -10,6 +12,27 @@ const (
 	MB int = KB * 1024
 	GB int = MB * 1024
 )
+
+var (
+	ErrEmpty       = errors.New("queue is empty")
+	ErrOutOfBounds = errors.New("ID used is outside range of queue")
+	ErrDBClosed    = errors.New("Database is closed")
+)
+
+type QueueItem struct {
+	ID    int64
+	Key   []byte
+	Value []byte
+}
+
+func (i *QueueItem) ToString() string {
+	return string(i.Value)
+}
+
+func (i *QueueItem) ToObject(value interface{}) error {
+	err := msgpack.Unmarshal(i.Value, value)
+	return err
+}
 
 func IdToKeyPure(id int64) []byte {
 	key := make([]byte, 8)
