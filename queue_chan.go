@@ -70,7 +70,7 @@ func (q *ChanQueue) init() error {
 	}
 	q.mats.Range(func(k, v interface{}) bool {
 		ma := v.(*Mat)
-		rg := util.BytesPrefix(k.([]byte))
+		rg := util.BytesPrefix([]byte(k.(string)))
 		iter.Seek(rg.Start)
 		atomic.StoreInt64(&ma.Head, keyToID(iter.Key())-1)
 		var lastid int64
