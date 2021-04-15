@@ -167,7 +167,8 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 	} else {
 		step := 0
 		for iter.Next() {
-			if step+1 < paging.Skip {
+			step++
+			if step < paging.Skip {
 				continue
 			}
 			t := reflect.New(nt).Interface()
@@ -179,7 +180,6 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 				item.Object = t
 				result = append(result, item)
 			}
-			step++
 			if len(result) >= paging.Limit {
 				break
 			}
