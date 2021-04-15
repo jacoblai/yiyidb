@@ -165,12 +165,12 @@ func (k *Kvdb) AllByObjectMix(chname, keyPrefix string, Ntype interface{}, pagin
 			}
 		}
 	} else {
-		step := 0
-		for iter.Next() {
-			step++
-			if step < paging.Skip {
-				continue
+		if paging.Skip > 0 {
+			for i := 0; i < paging.Skip; i++ {
+				iter.Next()
 			}
+		}
+		for iter.Next() {
 			t := reflect.New(nt).Interface()
 			err := msgpack.Unmarshal(iter.Value(), t)
 			if err == nil {
