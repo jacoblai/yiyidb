@@ -471,6 +471,20 @@ func (k *Kvdb) AllByKV(tran *leveldb.Transaction) []KvItem {
 	return result
 }
 
+func (k *Kvdb) ClearAll(tran *leveldb.Transaction) error {
+	batch := new(leveldb.Batch)
+	iter := k.newIter(nil, tran)
+	for iter.Next() {
+		batch.Delete(iter.Key())
+	}
+	iter.Release()
+	err := k.db.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (k *Kvdb) AllKeys(limit int, tran *leveldb.Transaction) []string {
 	keys := make([]string, 0)
 	lt := 0
