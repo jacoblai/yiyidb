@@ -485,7 +485,7 @@ func (k *Kvdb) ClearAll(tran *leveldb.Transaction) error {
 	return nil
 }
 
-func (k *Kvdb) AllKeys(paging *Paging, tran *leveldb.Transaction) []string {
+func (k *Kvdb) AllKeys(paging Paging, tran *leveldb.Transaction) []string {
 	keys := make([]string, 0)
 	iter := k.newIter(nil, tran)
 	if paging.Skip > 0 {
@@ -495,8 +495,10 @@ func (k *Kvdb) AllKeys(paging *Paging, tran *leveldb.Transaction) []string {
 	}
 	for iter.Next() {
 		keys = append(keys, string(iter.Key()))
-		if len(keys) >= paging.Limit {
-			break
+		if paging.Limit > 0 {
+			if len(keys) >= paging.Limit {
+				break
+			}
 		}
 	}
 	iter.Release()
